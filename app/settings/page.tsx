@@ -1,0 +1,342 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { syncEngine } from '@/lib/offline/syncEngine';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { useTheme } from '@/components/theme/ThemeProvider';
+import {
+  Settings,
+  Store,
+  RefreshCw,
+  Database,
+  Printer,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+  Sun,
+  Moon,
+  Laptop,
+} from 'lucide-react';
+
+export default function SettingsPage() {
+  const { theme, setTheme } = useTheme();
+  const [storeName, setStoreName] = useState('Kapda Ghar');
+  const [phone, setPhone] = useState('+91 98765 43210');
+  const [address, setAddress] = useState('Shop #12, Main Market, New Delhi');
+  const [printerPaperWidth, setPrinterPaperWidth] = useState<'80mm' | '58mm' | 'a4'>('80mm');
+  const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<any>({});
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const savedWidth = localStorage.getItem('kapda_ghar_printer_width') as '80mm' | '58mm' | 'a4' | null;
+      if (savedWidth && ['80mm', '58mm', 'a4'].includes(savedWidth)) {
+        setPrinterPaperWidth(savedWidth);
+      }
+      const savedName = localStorage.getItem('kapda_ghar_store_name');
+      if (savedName) setStoreName(savedName);
+
+      const savedPhone = localStorage.getItem('kapda_ghar_store_phone');
+      if (savedPhone) setPhone(savedPhone);
+
+      const savedAddress = localStorage.getItem('kapda_ghar_store_address');
+      if (savedAddress) setAddress(savedAddress);
+    } catch (e) {}
+  }, []);
+
+  const handleSetPrinterWidth = (width: '80mm' | '58mm' | 'a4') => {
+    setPrinterPaperWidth(width);
+    try {
+      localStorage.setItem('kapda_ghar_printer_width', width);
+      window.dispatchEvent(new Event('storage'));
+      const label = width === '80mm' ? '80mm POS Roll' : width === '58mm' ? '58mm Mini Roll' : 'A4 Full Sheet';
+      setSavedFeedback(`✓ Printer format set to ${label}. Receipts will now format for ${width}.`);
+      setTimeout(() => setSavedFeedback(null), 4000);
+    } catch (e) {}
+  };
+
+  const handleUpdateStoreName = (val: string) => {
+    setStoreName(val);
+    try {
+      localStorage.setItem('kapda_ghar_store_name', val);
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {}
+  };
+
+  const handleUpdatePhone = (val: string) => {
+    setPhone(val);
+    try {
+      localStorage.setItem('kapda_ghar_store_phone', val);
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {}
+  };
+
+  const handleUpdateAddress = (val: string) => {
+    setAddress(val);
+    try {
+      localStorage.setItem('kapda_ghar_store_address', val);
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (!syncEngine) return;
+    const unsubscribe = syncEngine.subscribe((status) => {
+      setSyncStatus(status);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleManualSync = async () => {
+    if (!syncEngine) return;
+    setIsSyncing(true);
+    setSyncMessage(null);
+    const res = await syncEngine.syncPendingTransactions();
+    setIsSyncing(false);
+    if (res.errors > 0 && res.lastError) {
+      setSyncMessage(`Sync: ${res.syncedCount} synced, ${res.errors} error(s) — ${res.lastError}`);
+    } else {
+      setSyncMessage(`Sync completed: ${res.syncedCount} synced, ${res.errors} errors.`);
+    }
+  };
+
+  const hasCloud = isSupabaseConfigured();
+
+  return (
+    <div className="space-y-6 pb-8 max-w-3xl">
+      {/* Header */}
+      <div className="pb-2 border-b border-slate-200 dark:border-slate-800/80 flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Store & System Settings
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Configure POS register, receipt printers, and cloud connectivity
+          </p>
+        </div>
+      </div>
+
+      {/* Global Saved Notification */}
+      {savedFeedback && (
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200 shadow-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{savedFeedback}</span>
+        </div>
+      )}
+
+      {/* Appearance & Theme Selector */}
+      <div className="p-5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <Sun className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            Appearance & Theme Preference
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Choose between clean SaaS Light mode, high-contrast Obsidian Dark mode, or automatic system sync.
+        </p>
+
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`p-3.5 rounded-xl flex flex-col items-center justify-center gap-2 transition-all border ${
+              theme === 'light'
+                ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs'
+                : 'bg-slate-50 dark:bg-[#0b0f19] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300'
+            }`}
+          >
+            <Sun className="w-5 h-5" />
+            <span className="text-xs">Light Mode</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`p-3.5 rounded-xl flex flex-col items-center justify-center gap-2 transition-all border ${
+              theme === 'dark'
+                ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs'
+                : 'bg-slate-50 dark:bg-[#0b0f19] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300'
+            }`}
+          >
+            <Moon className="w-5 h-5" />
+            <span className="text-xs">Dark Mode</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTheme('system')}
+            className={`p-3.5 rounded-xl flex flex-col items-center justify-center gap-2 transition-all border ${
+              theme === 'system'
+                ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs'
+                : 'bg-slate-50 dark:bg-[#0b0f19] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300'
+            }`}
+          >
+            <Laptop className="w-5 h-5" />
+            <span className="text-xs">System Auto</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Cloud & Offline Status Box */}
+      <div className="p-5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              Database & Offline Sync Engine
+            </span>
+          </div>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+              hasCloud
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
+            }`}
+          >
+            {hasCloud ? 'Supabase Connected' : 'Local IndexedDB (Offline)'}
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          {hasCloud
+            ? 'Connected to Supabase PostgreSQL cloud database with atomic RPC transaction validation and Row-Level Security.'
+            : 'Running in high-speed Local Offline Mode using browser IndexedDB storage. All POS transactions and inventory changes are committed locally first with zero latency and queued for auto-sync.'}
+        </p>
+
+        <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/60 text-xs">
+          <span className="text-slate-500 dark:text-slate-400">
+            Pending Offline Transactions:{' '}
+            <strong className="text-slate-900 dark:text-white font-mono">{syncStatus.pendingCount || 0}</strong>
+          </span>
+          <button
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Synchronizing...' : 'Sync Now'}</span>
+          </button>
+        </div>
+
+        {syncMessage && (
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{syncMessage}</p>
+        )}
+      </div>
+
+      {/* Store Identity (Prints on receipts) */}
+      <div className="p-5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <Store className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            Thermal Receipt Header Information
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Store / Business Name
+            </label>
+            <input
+              type="text"
+              value={storeName}
+              onChange={(e) => handleUpdateStoreName(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Contact Phone Number
+            </label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => handleUpdatePhone(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Store Address & City
+            </label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => handleUpdateAddress(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Printer Format Settings */}
+      <div className="p-5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-2">
+            <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              Printer Receipt Width Preset
+            </span>
+          </div>
+          <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase">
+            Active: {printerPaperWidth}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              { id: '80mm', label: '80mm POS Roll', sub: 'Standard 3"' },
+              { id: '58mm', label: '58mm Mini Roll', sub: 'Compact 2"' },
+              { id: 'a4', label: 'A4 Full Sheet', sub: 'Standard Letter' },
+            ] as const
+          ).map((fmt) => (
+            <button
+              key={fmt.id}
+              onClick={() => handleSetPrinterWidth(fmt.id)}
+              className={`py-3 px-3 rounded-lg text-left flex flex-col justify-between gap-1 transition-all ${
+                printerPaperWidth === fmt.id
+                  ? 'bg-indigo-600 text-white shadow-sm border border-indigo-400/40 ring-2 ring-indigo-500/20'
+                  : 'bg-slate-50 dark:bg-[#0b0f19] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
+              }`}
+            >
+              <span className="text-xs font-bold block">{fmt.label}</span>
+              <span
+                className={`text-[10px] font-mono block ${
+                  printerPaperWidth === fmt.id ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'
+                }`}
+              >
+                {fmt.sub}
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          {printerPaperWidth === '80mm' && 'Standard 80mm roll is ideal for commercial desktop thermal ESC/POS printers.'}
+          {printerPaperWidth === '58mm' && 'Compact 58mm roll formats the receipt with tighter margins for 2-inch mini Bluetooth/USB printers.'}
+          {printerPaperWidth === 'a4' && 'A4 format formats the receipt as a clean full-sheet retail invoice for standard laser/inkjet printers.'}
+        </p>
+      </div>
+
+      {/* Security & Data Integrity Summary */}
+      <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 flex items-start gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="font-semibold text-slate-800 dark:text-slate-300">Transaction & Inventory Integrity</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-500">
+            Stock quantities are strictly validated to prevent overselling. Product prices are permanently locked into sale snapshots at checkout time.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
