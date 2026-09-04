@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
+    <html lang="en" suppressHydrationWarning className="light">
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -45,7 +45,7 @@ export default function RootLayout({
               (function() {
                 try {
                   var saved = localStorage.getItem('kapda_ghar_theme');
-                  var isDark = saved === 'dark' || (!saved && true) || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  var isDark = saved === 'dark' || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   var root = document.documentElement;
                   if (isDark) {
                     root.classList.add('dark');

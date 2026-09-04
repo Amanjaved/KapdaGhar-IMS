@@ -16,8 +16,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const STORAGE_KEY = 'kapda_ghar_theme';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setThemeState] = useState<Theme>('light');
+  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -25,8 +25,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (saved && (saved === 'dark' || saved === 'light' || saved === 'system')) {
       setThemeState(saved);
     } else {
-      // Default to dark
-      setThemeState('dark');
+      // Default to light
+      setThemeState('light');
     }
     setMounted(true);
   }, []);
