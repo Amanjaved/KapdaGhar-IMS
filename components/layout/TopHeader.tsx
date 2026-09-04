@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { syncEngine } from '@/lib/offline/syncEngine';
-import { Wifi, WifiOff, RefreshCw, Store, Plus, ShoppingCart, ShieldCheck, LogOut, User } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Store, Plus, ShoppingCart, ShieldCheck, LogOut, User, Settings } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -88,7 +88,7 @@ export function TopHeader() {
       </div>
 
       {/* Right: Quick Actions, Theme Toggle & Connectivity Status */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Quick Add Product Shortcut on Desktop */}
         <Link
           href="/products/new"
@@ -108,6 +108,19 @@ export function TopHeader() {
             <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           </Link>
         )}
+
+        {/* Settings Button */}
+        <Link
+          href="/settings"
+          className={`p-2 rounded-lg transition-colors ${
+            pathname === '/settings'
+              ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400'
+              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          title="Store & Database Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </Link>
 
         {/* Theme Toggle Button */}
         <ThemeToggle />
