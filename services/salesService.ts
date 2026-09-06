@@ -11,7 +11,7 @@ const DEFAULT_BUSINESS_ID = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-000
 // Fast In-Memory Sales Cache
 let memorySales: Sale[] | null = null;
 let lastSalesSync = 0;
-const SALES_SYNC_TTL = 15_000; // 15s
+const SALES_SYNC_TTL = 5_000; // 5s
 let pendingSalesSync: Promise<Sale[]> | null = null;
 
 if (typeof window !== 'undefined') {
@@ -270,13 +270,14 @@ export const salesService = {
     forceRefresh: boolean = false
   ): Promise<Sale[]> {
     const now = Date.now();
+    const isStale = !lastSalesSync || now - lastSalesSync >= SALES_SYNC_TTL;
 
-    // 1. Return from in-memory cache if fresh
-    if (!forceRefresh && memorySales && now - lastSalesSync < SALES_SYNC_TTL) {
+    // 1. Instant in-memory cache return if fresh and not forcing refresh
+    if (!forceRefresh && !isStale && memorySales && memorySales.length > 0) {
       return filterSalesByRange(memorySales, filterRange);
     }
 
-    // 2. Read from local IndexedDB if memory cache empty
+    // 2. Read from local IndexedDB if memory cache empty (offline fallback / quick hydration)
     const db = await getDB();
     if (!memorySales && db) {
       const allSales = await db.getAll('sales');
@@ -295,16 +296,19 @@ export const salesService = {
       }));
     }
 
-    // 3. Trigger cloud sync (await if cold boot or forceRefresh, otherwise background)
-    const shouldAwaitCloud = forceRefresh || !memorySales || memorySales.length === 0;
-    const syncPromise = this.syncSalesFromCloud();
+    // 3. When online, ALWAYS fetch fresh cloud sales on cold boot, reload, stale cache, or forceRefresh
+    const isOnline = typeof navigator !== 'undefined' && navigator.onLine && isSupabaseConfigured();
 
-    if (shouldAwaitCloud) {
-      const freshSales = await syncPromise;
-      return filterSalesByRange(freshSales, filterRange);
+    if (isOnline && (forceRefresh || isStale || !memorySales || memorySales.length === 0)) {
+      try {
+        const freshSales = await this.syncSalesFromCloud();
+        return filterSalesByRange(freshSales, filterRange);
+      } catch (err) {
+        console.warn('Online sales sync failed, falling back to local memory:', err);
+      }
     }
 
-    // Background sync triggered, return local/cached immediately (0ms)
+    // 4. Return local/cached sales (guaranteed offline resilience)
     return filterSalesByRange(memorySales || [], filterRange);
   },
 
@@ -354,9 +358,6 @@ export const salesService = {
 
               memorySales = formattedSales;
               lastSalesSync = Date.now();
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('sales-refreshed'));
-              }
 
               // Batch save to IndexedDB asynchronously
               const db = await getDB();

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { reportsService } from '@/services/reportsService';
 import { salesService } from '@/services/salesService';
+import { productService } from '@/services/productService';
 import { DashboardStats, Sale } from '@/types';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ReceiptModal } from '@/components/pos/ReceiptModal';
@@ -40,12 +41,78 @@ export default function DashboardPage() {
 
   const loadDashboardData = async (force: boolean = false) => {
     try {
-      const [statsData, salesData] = await Promise.all([
-        reportsService.getDashboardStats(force),
-        salesService.getSales('today', force),
+      // 1. Fetch complete sales and products concurrently
+      const [allSales, allProducts] = await Promise.all([
+        salesService.getSales('all', force),
+        productService.getProducts(undefined, undefined, force),
       ]);
-      setStats(statsData);
-      setRecentSales(salesData.slice(0, 6));
+
+      // 2. Synchronously derive both KPI stats and Recent Sales from the single allSales array
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+      let todaySales = 0;
+      let todayProfit = 0;
+      let todayCost = 0;
+      let todayTransactions = 0;
+      let monthSales = 0;
+      let monthProfit = 0;
+      let itemsSold = 0;
+
+      const todaySalesList: Sale[] = [];
+
+      for (const sale of allSales) {
+        if (sale.status !== 'completed') continue;
+
+        const saleTime = new Date(sale.created_at).getTime();
+
+        if (saleTime >= startOfToday) {
+          todaySalesList.push(sale);
+          todaySales += sale.total;
+          todayProfit += sale.total_profit;
+          todayCost += sale.total_cost;
+          todayTransactions++;
+
+          if (sale.items && sale.items.length > 0) {
+            for (const item of sale.items) {
+              itemsSold += item.quantity;
+            }
+          }
+        }
+
+        if (saleTime >= startOfMonth) {
+          monthSales += sale.total;
+          monthProfit += sale.total_profit;
+        }
+      }
+
+      const lowStockCount = allProducts.filter(
+        (p) => (p.quantity ?? 0) <= p.low_stock_threshold
+      ).length;
+
+      todaySalesList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setStats({
+        today_sales: Math.round(todaySales),
+        today_profit: Math.round(todayProfit),
+        today_cost: Math.round(todayCost),
+        items_sold: itemsSold,
+        transactions: todayTransactions,
+        low_stock_count: lowStockCount,
+        month_sales: Math.round(monthSales),
+        month_profit: Math.round(monthProfit),
+      });
+
+      // Recent sales: show today's receipts; if none recorded today, show latest overall receipts
+      if (todaySalesList.length > 0) {
+        setRecentSales(todaySalesList.slice(0, 6));
+      } else {
+        const sortedAll = [...allSales].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setRecentSales(sortedAll.slice(0, 6));
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -63,11 +130,13 @@ export default function DashboardPage() {
     window.addEventListener('sales-refreshed', handleLiveRefresh);
     window.addEventListener('catalog-refreshed', handleLiveRefresh);
     window.addEventListener('focus', handleLiveRefresh);
+    window.addEventListener('online', handleLiveRefresh);
 
     return () => {
       window.removeEventListener('sales-refreshed', handleLiveRefresh);
       window.removeEventListener('catalog-refreshed', handleLiveRefresh);
       window.removeEventListener('focus', handleLiveRefresh);
+      window.removeEventListener('online', handleLiveRefresh);
     };
   }, []);
 
