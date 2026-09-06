@@ -35,7 +35,7 @@ export function TopHeader() {
 
   const handleManualSync = () => {
     if (syncEngine) {
-      syncEngine.syncPendingTransactions();
+      syncEngine.runFullAutoSync();
     }
   };
 
@@ -156,11 +156,11 @@ export function TopHeader() {
           </div>
         )}
 
-        {/* Sync / Connectivity Status */}
+        {/* Auto-Sync / Connectivity Status */}
         {status.isSyncing ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-medium border border-indigo-500/20">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            <span className="hidden sm:inline">Syncing...</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-medium border border-indigo-500/20 shadow-xs">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600 dark:text-indigo-400" />
+            <span className="hidden sm:inline font-semibold">Auto-Syncing...</span>
           </div>
         ) : !status.isOnline ? (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium border border-amber-500/20">
@@ -170,16 +170,21 @@ export function TopHeader() {
         ) : status.pendingCount > 0 ? (
           <button
             onClick={handleManualSync}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium border border-amber-500/30 transition-colors"
+            title="Pending offline items — click to sync now"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium border border-amber-500/30 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Sync ({status.pendingCount})</span>
           </button>
         ) : (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="hidden sm:inline">Online</span>
-          </div>
+          <button
+            onClick={handleManualSync}
+            title="Auto-Sync Active (Every 10s) • Multi-device real-time sync running (Click to sync now)"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/15 transition-all cursor-pointer shadow-xs active:scale-95"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="hidden sm:inline font-semibold">Auto-Sync</span>
+          </button>
         )}
       </div>
     </header>

@@ -100,12 +100,12 @@ export default function SettingsPage() {
     if (!syncEngine) return;
     setIsSyncing(true);
     setSyncMessage(null);
-    const res = await syncEngine.syncPendingTransactions();
+    const res = await syncEngine.runFullAutoSync(true);
     setIsSyncing(false);
-    if (res.errors > 0 && res.lastError) {
-      setSyncMessage(`Sync: ${res.syncedCount} synced, ${res.errors} error(s) — ${res.lastError}`);
+    if (!res.success && res.errors > 0) {
+      setSyncMessage(`Sync: ${res.syncedCount} synced, ${res.errors} error(s) — ${res.message}`);
     } else {
-      setSyncMessage(`Sync completed: ${res.syncedCount} synced, ${res.errors} errors.`);
+      setSyncMessage(`✓ Auto-sync completed: ${res.message}`);
     }
   };
 
@@ -188,13 +188,13 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Cloud & Offline Status Box */}
+      {/* Cloud & Auto-Sync Engine Card */}
       <div className="p-5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-              Database & Offline Sync Engine
+              Automatic Multi-Device Cloud Sync
             </span>
           </div>
           <span
@@ -204,28 +204,114 @@ export default function SettingsPage() {
                 : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
             }`}
           >
-            {hasCloud ? 'Supabase Connected' : 'Local IndexedDB (Offline)'}
+            {hasCloud ? 'Supabase Realtime Connected' : 'Local IndexedDB (Offline)'}
           </span>
         </div>
 
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          {hasCloud
-            ? 'Connected to Supabase PostgreSQL cloud database with atomic RPC transaction validation and Row-Level Security.'
-            : 'Running in high-speed Local Offline Mode using browser IndexedDB storage. All POS transactions and inventory changes are committed locally first with zero latency and queued for auto-sync.'}
+          Continuous two-way synchronization keeps inventory, stock levels, categories, and sales updated across Desktop, Phone, and all store terminals automatically.
         </p>
 
-        <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/60 text-xs">
-          <span className="text-slate-500 dark:text-slate-400">
-            Pending Offline Transactions:{' '}
-            <strong className="text-slate-900 dark:text-white font-mono">{syncStatus.pendingCount || 0}</strong>
-          </span>
+        {/* Auto-Sync Settings Controls */}
+        <div className="space-y-3 pt-1">
+          {/* Toggle: Auto-Sync */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-[#0b0f19] border border-slate-200/80 dark:border-slate-800">
+            <div className="space-y-0.5 pr-4">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">Continuous Background Auto-Sync</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                  Active
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Automatically checks for catalog changes and pushes pending records in the background.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !(syncStatus.autoSyncEnabled !== false);
+                syncEngine?.setAutoSyncEnabled(next);
+                setSavedFeedback(`✓ Auto-sync ${next ? 'enabled' : 'paused'}`);
+                setTimeout(() => setSavedFeedback(null), 3000);
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                syncStatus.autoSyncEnabled !== false ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                  syncStatus.autoSyncEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Sync Frequency Selector */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0b0f19] border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-white">Auto-Sync Frequency</span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  How often terminals automatically verify inventory and sync with the cloud database.
+                </p>
+              </div>
+              <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                Every {syncStatus.autoSyncIntervalSeconds || 10}s
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { sec: 10, label: '10 Seconds', desc: 'Realtime (Best)' },
+                { sec: 30, label: '30 Seconds', desc: 'Balanced' },
+                { sec: 60, label: '60 Seconds', desc: 'Low Data' },
+              ].map((item) => (
+                <button
+                  key={item.sec}
+                  type="button"
+                  onClick={() => {
+                    syncEngine?.setAutoSyncInterval(item.sec);
+                    setSavedFeedback(`✓ Auto-sync interval set to ${item.sec}s`);
+                    setTimeout(() => setSavedFeedback(null), 3000);
+                  }}
+                  className={`py-2 px-2 text-center rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                    (syncStatus.autoSyncIntervalSeconds || 10) === item.sec
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs'
+                      : 'bg-white dark:bg-[#121827] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="block font-bold">{item.label}</span>
+                  <span className={`block text-[10px] font-normal ${
+                    (syncStatus.autoSyncIntervalSeconds || 10) === item.sec ? 'text-indigo-100' : 'text-slate-400'
+                  }`}>{item.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Sync Status & Action Bar */}
+        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800/60 text-xs">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">
+                Pending Offline Transactions:{' '}
+                <strong className="text-slate-900 dark:text-white font-mono">{syncStatus.pendingCount || 0}</strong>
+              </span>
+            </div>
+            {syncStatus.lastSyncedAt && (
+              <p className="text-[11px] text-slate-400">
+                Last auto-synced: {new Date(syncStatus.lastSyncedAt).toLocaleTimeString()}
+              </p>
+            )}
+          </div>
           <button
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Synchronizing...' : 'Sync Now'}</span>
+            <span>{isSyncing ? 'Auto-Syncing...' : 'Run Full Auto-Sync Now'}</span>
           </button>
         </div>
 

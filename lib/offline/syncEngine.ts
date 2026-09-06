@@ -1,27 +1,64 @@
 import { getDB } from '@/lib/indexeddb/db';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID, isValidUUID, toValidUUID } from '@/lib/utils/uuid';
+import { productService } from '@/services/productService';
 
-type SyncListener = (status: {
+export interface SyncStatus {
   isOnline: boolean;
   isSyncing: boolean;
   pendingCount: number;
   lastSyncedAt?: Date;
+  autoSyncEnabled: boolean;
+  autoSyncIntervalSeconds: number;
   error?: string;
-}) => void;
+  lastSyncResult?: string;
+}
+
+export type SyncListener = (status: SyncStatus) => void;
 
 class SyncEngine {
   private listeners: Set<SyncListener> = new Set();
   private isSyncing = false;
   private lastSyncedAt?: Date;
   private pendingCount = 0;
+  private autoSyncTimer: any = null;
+  private autoSyncEnabled = true;
+  private autoSyncIntervalSeconds = 10;
+  private lastSyncResult?: string;
 
   constructor() {
     if (typeof window !== 'undefined') {
+      try {
+        const savedEnabled = localStorage.getItem('kapda_ghar_auto_sync_enabled');
+        if (savedEnabled !== null) {
+          this.autoSyncEnabled = savedEnabled === 'true';
+        }
+        const savedInterval = localStorage.getItem('kapda_ghar_auto_sync_interval');
+        if (savedInterval) {
+          const parsed = parseInt(savedInterval, 10);
+          if (!isNaN(parsed) && parsed >= 5) {
+            this.autoSyncIntervalSeconds = parsed;
+          }
+        }
+      } catch {}
+
       window.addEventListener('online', () => this.handleOnline());
       window.addEventListener('offline', () => this.notify());
-      // Initial count check
+
+      // Immediate auto-sync when waking screen or focusing tab on mobile / desktop
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && this.autoSyncEnabled) {
+          this.runFullAutoSync();
+        }
+      });
+      window.addEventListener('focus', () => {
+        if (this.autoSyncEnabled) {
+          this.runFullAutoSync();
+        }
+      });
+
       this.updatePendingCount();
+      this.startAutoSync();
     }
   }
 
@@ -32,23 +69,157 @@ class SyncEngine {
       isSyncing: this.isSyncing,
       pendingCount: this.pendingCount,
       lastSyncedAt: this.lastSyncedAt,
+      autoSyncEnabled: this.autoSyncEnabled,
+      autoSyncIntervalSeconds: this.autoSyncIntervalSeconds,
+      lastSyncResult: this.lastSyncResult,
     });
     return () => {
       this.listeners.delete(listener);
     };
   }
 
-  private notify(error?: string) {
+  private notify(error?: string, result?: string) {
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    if (result) this.lastSyncResult = result;
+    const status: SyncStatus = {
+      isOnline,
+      isSyncing: this.isSyncing,
+      pendingCount: this.pendingCount,
+      lastSyncedAt: this.lastSyncedAt,
+      autoSyncEnabled: this.autoSyncEnabled,
+      autoSyncIntervalSeconds: this.autoSyncIntervalSeconds,
+      error,
+      lastSyncResult: this.lastSyncResult,
+    };
     for (const listener of this.listeners) {
-      listener({
-        isOnline,
-        isSyncing: this.isSyncing,
-        pendingCount: this.pendingCount,
-        lastSyncedAt: this.lastSyncedAt,
-        error,
-      });
+      listener(status);
     }
+  }
+
+  public startAutoSync() {
+    if (typeof window === 'undefined') return;
+    this.stopAutoSync();
+
+    if (!this.autoSyncEnabled) return;
+
+    // Run initial auto-sync after 1.5s
+    setTimeout(() => {
+      this.runFullAutoSync();
+    }, 1500);
+
+    this.autoSyncTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && this.autoSyncEnabled) {
+        this.runFullAutoSync();
+      }
+    }, this.autoSyncIntervalSeconds * 1000);
+  }
+
+  public stopAutoSync() {
+    if (this.autoSyncTimer) {
+      clearInterval(this.autoSyncTimer);
+      this.autoSyncTimer = null;
+    }
+  }
+
+  public setAutoSyncEnabled(enabled: boolean) {
+    this.autoSyncEnabled = enabled;
+    try {
+      localStorage.setItem('kapda_ghar_auto_sync_enabled', enabled ? 'true' : 'false');
+    } catch {}
+    if (enabled) {
+      this.startAutoSync();
+    } else {
+      this.stopAutoSync();
+    }
+    this.notify();
+  }
+
+  public setAutoSyncInterval(seconds: number) {
+    this.autoSyncIntervalSeconds = Math.max(5, seconds);
+    try {
+      localStorage.setItem('kapda_ghar_auto_sync_interval', this.autoSyncIntervalSeconds.toString());
+    } catch {}
+    if (this.autoSyncEnabled) {
+      this.startAutoSync();
+    }
+    this.notify();
+  }
+
+  public getAutoSyncSettings() {
+    return {
+      enabled: this.autoSyncEnabled,
+      intervalSeconds: this.autoSyncIntervalSeconds,
+      lastSyncedAt: this.lastSyncedAt,
+      lastSyncResult: this.lastSyncResult,
+    };
+  }
+
+  public async runFullAutoSync(force: boolean = false): Promise<{
+    success: boolean;
+    syncedCount: number;
+    errors: number;
+    message: string;
+  }> {
+    if (this.isSyncing) {
+      return { success: false, syncedCount: 0, errors: 0, message: 'Sync already in progress' };
+    }
+
+    if (!isSupabaseConfigured() || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      await this.updatePendingCount();
+      this.notify();
+      return { success: false, syncedCount: 0, errors: 0, message: 'Offline' };
+    }
+
+    this.isSyncing = true;
+    this.notify();
+
+    let totalUploaded = 0;
+    let totalErrors = 0;
+    let statusMsg = '';
+
+    try {
+      // 1. Push any local products created offline (e.g. map 2)
+      const pushRes = await productService.pushLocalCatalogToCloud();
+      totalUploaded += pushRes.uploaded;
+      totalErrors += pushRes.errors;
+
+      // 2. Push any offline pending sales
+      const salesRes = await this.syncPendingTransactions();
+      totalUploaded += salesRes.syncedCount;
+      totalErrors += salesRes.errors;
+
+      // 3. Pull latest categories from Supabase
+      await productService.syncCategoriesFromCloud();
+
+      // 4. Pull latest products and inventory from Supabase (purges deleted items)
+      await productService.syncProductsFromCloud();
+
+      // 5. Notify all open tabs and UI pages
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+        window.dispatchEvent(new CustomEvent('sales-refreshed'));
+      }
+
+      this.lastSyncedAt = new Date();
+      statusMsg = totalUploaded > 0
+        ? `Synced ${totalUploaded} item(s) with cloud`
+        : `Up to date (${this.lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    } catch (err: any) {
+      console.warn('Auto-sync cycle warning:', err);
+      totalErrors++;
+      statusMsg = err?.message || 'Sync error';
+    } finally {
+      this.isSyncing = false;
+      await this.updatePendingCount();
+      this.notify(totalErrors > 0 ? statusMsg : undefined, statusMsg);
+    }
+
+    return {
+      success: totalErrors === 0,
+      syncedCount: totalUploaded,
+      errors: totalErrors,
+      message: statusMsg,
+    };
   }
 
   private async updatePendingCount(): Promise<number> {
@@ -67,7 +238,7 @@ class SyncEngine {
 
   private async handleOnline() {
     this.notify();
-    await this.syncPendingTransactions();
+    await this.runFullAutoSync();
   }
 
   public async syncPendingTransactions(): Promise<{ syncedCount: number; errors: number; lastError?: string }> {

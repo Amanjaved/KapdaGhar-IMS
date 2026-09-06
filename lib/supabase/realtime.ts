@@ -3,6 +3,7 @@
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { productService } from '@/services/productService';
 import { getDB } from '@/lib/indexeddb/db';
+import { syncEngine } from '@/lib/offline/syncEngine';
 
 let realtimeChannel: any = null;
 let broadcastChannel: BroadcastChannel | null = null;
@@ -74,37 +75,40 @@ export function initRealtimeSync() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
         async () => {
-          await productService.syncProductsFromCloud();
+          if (syncEngine) {
+            await syncEngine.runFullAutoSync();
+          } else {
+            await productService.syncProductsFromCloud();
+          }
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
         async () => {
-          await productService.syncCategoriesFromCloud();
-          window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+          if (syncEngine) {
+            await syncEngine.runFullAutoSync();
+          } else {
+            await productService.syncCategoriesFromCloud();
+          }
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sales' },
-        () => {
-          window.dispatchEvent(new CustomEvent('sales-refreshed'));
+        async () => {
+          if (syncEngine) {
+            await syncEngine.runFullAutoSync();
+          } else {
+            window.dispatchEvent(new CustomEvent('sales-refreshed'));
+          }
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('⚡ Realtime connected: live stock, catalog, and sales updates active.');
+          console.log('⚡ Realtime connected: live auto-sync active for stock, catalog, and sales.');
         }
       });
-
-    // Auto-refresh when tab or phone screen becomes active/visible
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        productService.syncProductsFromCloud();
-        productService.syncCategoriesFromCloud();
-      }
-    });
   } catch (err) {
     console.warn('Supabase Realtime subscription error:', err);
   }

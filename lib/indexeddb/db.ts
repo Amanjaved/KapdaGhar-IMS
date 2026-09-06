@@ -59,7 +59,7 @@ const DB_VERSION = 2;
 let dbPromise: Promise<IDBPDatabase<KapdaGharDB>> | null = null;
 
 export function getDB() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
 
   if (!dbPromise) {
     dbPromise = openDB<KapdaGharDB>(DB_NAME, DB_VERSION, {
