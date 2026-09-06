@@ -97,6 +97,18 @@ export default function RootLayout({
                   });
                 }
               }
+
+              // Auto-reload on Next.js ChunkLoadError when a new version is deployed
+              window.addEventListener('error', function(e) {
+                if (e && e.message && (e.message.indexOf('Loading chunk') !== -1 || e.message.indexOf('ChunkLoadError') !== -1)) {
+                  var last = sessionStorage.getItem('chunk_auto_reload');
+                  var now = Date.now();
+                  if (!last || now - Number(last) > 15000) {
+                    sessionStorage.setItem('chunk_auto_reload', String(now));
+                    window.location.reload();
+                  }
+                }
+              });
             `,
           }}
         />

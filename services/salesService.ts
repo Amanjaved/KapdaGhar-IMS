@@ -354,6 +354,9 @@ export const salesService = {
 
               memorySales = formattedSales;
               lastSalesSync = Date.now();
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('sales-refreshed'));
+              }
 
               // Batch save to IndexedDB asynchronously
               const db = await getDB();

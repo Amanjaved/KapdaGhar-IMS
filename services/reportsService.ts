@@ -2,6 +2,7 @@ import { getDB } from '@/lib/indexeddb/db';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { DashboardStats, Product } from '@/types';
 import { productService } from './productService';
+import { salesService } from './salesService';
 
 export interface TopProductMetric {
   id: string;
@@ -14,14 +15,16 @@ export interface TopProductMetric {
 // In-memory cache for dashboard stats (fast 0ms return)
 let memoryStats: DashboardStats | null = null;
 let lastStatsFetch = 0;
-const STATS_TTL_MS = 10_000; // 10 seconds
+const STATS_TTL_MS = 5_000; // 5 seconds
 
 if (typeof window !== 'undefined') {
   window.addEventListener('sales-refreshed', () => {
     memoryStats = null;
+    lastStatsFetch = 0;
   });
   window.addEventListener('catalog-refreshed', () => {
     memoryStats = null;
+    lastStatsFetch = 0;
   });
 }
 
@@ -34,50 +37,11 @@ export const reportsService = {
       return memoryStats;
     }
 
-    // 2. If Supabase RPC is available and online, try get_dashboard_stats()
-    if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.rpc('get_dashboard_stats');
-          if (!error && data) {
-            memoryStats = {
-              today_sales: Number(data.today_sales || 0),
-              today_profit: Number(data.today_profit || 0),
-              today_cost: Number(data.today_cost || 0),
-              items_sold: Number(data.items_sold || 0),
-              transactions: Number(data.transactions || 0),
-              low_stock_count: Number(data.low_stock_count || 0),
-              month_sales: Number(data.month_sales || 0),
-              month_profit: Number(data.month_profit || 0),
-            };
-            lastStatsFetch = Date.now();
-            return memoryStats;
-          }
-        }
-      } catch (err) {
-        console.warn('Falling back to local dashboard statistics calculation:', err);
-      }
-    }
-
-    // 3. Local IndexedDB Calculation fallback
-    const db = await getDB();
-    if (!db) {
-      return {
-        today_sales: 0,
-        today_profit: 0,
-        today_cost: 0,
-        items_sold: 0,
-        transactions: 0,
-        low_stock_count: 0,
-        month_sales: 0,
-        month_profit: 0,
-      };
-    }
-
-    const allSales = await db.getAll('sales');
-    const allSaleItems = await db.getAll('sale_items');
-    const allProducts = await productService.getProducts();
+    // 2. Derive stats directly from salesService (single source of truth for all pages)
+    const [allSales, allProducts] = await Promise.all([
+      salesService.getSales('all', forceRefresh),
+      productService.getProducts(undefined, undefined, forceRefresh),
+    ]);
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -89,8 +53,7 @@ export const reportsService = {
     let todayTransactions = 0;
     let monthSales = 0;
     let monthProfit = 0;
-
-    const todaySaleIds = new Set<string>();
+    let itemsSold = 0;
 
     for (const sale of allSales) {
       if (sale.status !== 'completed') continue;
@@ -102,19 +65,17 @@ export const reportsService = {
         todayProfit += sale.total_profit;
         todayCost += sale.total_cost;
         todayTransactions++;
-        todaySaleIds.add(sale.id);
+
+        if (sale.items && sale.items.length > 0) {
+          for (const item of sale.items) {
+            itemsSold += item.quantity;
+          }
+        }
       }
 
       if (saleTime >= startOfMonth) {
         monthSales += sale.total;
         monthProfit += sale.total_profit;
-      }
-    }
-
-    let itemsSold = 0;
-    for (const item of allSaleItems) {
-      if (todaySaleIds.has(item.sale_id)) {
-        itemsSold += item.quantity;
       }
     }
 

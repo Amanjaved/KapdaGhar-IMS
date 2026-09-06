@@ -9,10 +9,53 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const isChunkError =
+    Boolean(error?.message?.includes('Loading chunk')) ||
+    Boolean(error?.message?.includes('ChunkLoadError')) ||
+    error?.name === 'ChunkLoadError' ||
+    Boolean(error?.message?.includes('Failed to fetch dynamically imported module'));
+
+  React.useEffect(() => {
+    if (isChunkError && typeof window !== 'undefined') {
+      const lastReload = sessionStorage.getItem('chunk_err_reload');
+      const now = Date.now();
+      if (!lastReload || now - Number(lastReload) > 15000) {
+        sessionStorage.setItem('chunk_err_reload', String(now));
+        const doReload = () => {
+          (window as Window).location.reload();
+        };
+        if (typeof caches !== 'undefined') {
+          caches
+            .keys()
+            .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+            .finally(doReload);
+        } else {
+          doReload();
+        }
+      }
+    }
+  }, [isChunkError]);
+
+  const handleUpdateRefresh = () => {
+    if (typeof window !== 'undefined') {
+      const doRedirect = () => {
+        (window as Window).location.href = '/';
+      };
+      if (typeof caches !== 'undefined') {
+        caches
+          .keys()
+          .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+          .finally(doRedirect);
+      } else {
+        doRedirect();
+      }
+    }
+  };
+
   return (
     <html lang="en" className="dark">
       <head>
-        <title>Application Error — Kapda Ghar</title>
+        <title>{isChunkError ? 'Updating Kapda Ghar...' : 'Application Error — Kapda Ghar'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body style={{
@@ -41,16 +84,16 @@ export default function GlobalError({
             width: '48px',
             height: '48px',
             borderRadius: '12px',
-            backgroundColor: 'rgba(244, 63, 94, 0.1)',
-            border: '1px solid rgba(244, 63, 94, 0.2)',
-            color: '#fb7185',
+            backgroundColor: isChunkError ? 'rgba(99, 102, 241, 0.15)' : 'rgba(244, 63, 94, 0.1)',
+            border: isChunkError ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(244, 63, 94, 0.2)',
+            color: isChunkError ? '#818cf8' : '#fb7185',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.25rem',
             fontSize: '24px'
           }}>
-            ⚠
+            {isChunkError ? '⚡' : '⚠'}
           </div>
           <span style={{
             display: 'inline-block',
@@ -60,11 +103,11 @@ export default function GlobalError({
             letterSpacing: '0.05em',
             padding: '3px 10px',
             borderRadius: '9999px',
-            backgroundColor: 'rgba(244, 63, 94, 0.15)',
-            color: '#fb7185',
+            backgroundColor: isChunkError ? 'rgba(99, 102, 241, 0.15)' : 'rgba(244, 63, 94, 0.15)',
+            color: isChunkError ? '#a5b4fc' : '#fb7185',
             marginBottom: '0.75rem'
           }}>
-            Critical System Interruption
+            {isChunkError ? 'New Deployment Available' : 'Critical System Interruption'}
           </span>
           <h1 style={{
             fontSize: '1.5rem',
@@ -72,7 +115,7 @@ export default function GlobalError({
             color: '#ffffff',
             margin: '0 0 0.5rem'
           }}>
-            Kapda Ghar POS System
+            {isChunkError ? 'Application Update Available' : 'Kapda Ghar POS System'}
           </h1>
           <p style={{
             fontSize: '0.875rem',
@@ -80,7 +123,9 @@ export default function GlobalError({
             lineHeight: 1.5,
             margin: '0 0 1.5rem'
           }}>
-            A root-level exception occurred. Your stored offline inventory and register data are safe in your browser.
+            {isChunkError
+              ? 'A fresh update of the store system has been deployed. Tap below to load the latest version.'
+              : 'A root-level exception occurred. Your stored offline inventory and register data are safe in your browser.'}
           </p>
 
           <div style={{
@@ -89,7 +134,7 @@ export default function GlobalError({
             gap: '0.75rem'
           }}>
             <button
-              onClick={() => reset()}
+              onClick={handleUpdateRefresh}
               style={{
                 width: '100%',
                 padding: '0.75rem 1rem',
@@ -102,7 +147,7 @@ export default function GlobalError({
                 cursor: 'pointer'
               }}
             >
-              Restart Application
+              {isChunkError ? 'Update & Refresh Now' : 'Restart Application'}
             </button>
             <button
               onClick={() => { window.location.href = '/'; }}
