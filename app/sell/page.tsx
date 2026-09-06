@@ -585,12 +585,12 @@ export default function ScanAndSellPage() {
         </div>
       </div>
 
-      {/* Floating Mobile Cart Bar - perfectly elevated above BottomNav */}
+      {/* Floating Mobile Cart Bar - safely elevated above BottomNav and safe areas */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-[4.75rem] left-4 right-4 max-w-md mx-auto z-30">
+        <div className="lg:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:left-4 sm:right-4 max-w-md mx-auto z-30">
           <button
             onClick={() => setIsCartOpen(true)}
-            className="w-full p-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-between shadow-xl shadow-indigo-600/30 active:scale-[0.98] transition-all border border-indigo-400/30"
+            className="w-full p-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-between shadow-xl shadow-indigo-600/30 active:scale-[0.98] transition-all border border-indigo-400/30 cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-xs">
@@ -617,8 +617,8 @@ export default function ScanAndSellPage() {
       {/* Slide-over Mobile Cart Drawer */}
       {isCartOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/60 dark:bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-[#0f1523] h-full flex flex-col border-l border-slate-200 dark:border-slate-800 pb-safe">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="w-full max-w-md bg-white dark:bg-[#0f1523] h-full flex flex-col border-l border-slate-200 dark:border-slate-800 pb-safe overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Current Register Bill</h3>
@@ -626,17 +626,17 @@ export default function ScanAndSellPage() {
               </div>
               <button
                 onClick={() => setIsCartOpen(false)}
-                className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-2">
               {renderCartItemsList()}
             </div>
 
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0d1322]">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0d1322] shrink-0 overflow-y-auto max-h-[55vh]">
               {renderCheckoutSummary()}
             </div>
           </div>

@@ -46,8 +46,8 @@ export function DeleteProductModal({ product, onClose, onDeleted }: DeleteProduc
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-sm bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-5 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-sm max-h-[92vh] flex flex-col bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-5 overflow-y-auto my-auto">
         {/* Header */}
         <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
@@ -61,7 +61,7 @@ export function DeleteProductModal({ product, onClose, onDeleted }: DeleteProduc
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

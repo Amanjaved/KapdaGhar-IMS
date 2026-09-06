@@ -101,35 +101,35 @@ export default function SalesHistoryPage() {
       </div>
 
       {/* Aggregate Revenue Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
-          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="p-3 sm:p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Total Settled Revenue
           </p>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums mt-1">
+          <p className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums mt-0.5 sm:mt-1 truncate">
             {formatCurrency(totalRevenue)}
           </p>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Across {filteredSales.length} customer bills</p>
+          <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">Across {filteredSales.length} customer bills</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
-          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <div className="p-3 sm:p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Net Realized Profit
           </p>
-          <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-1">
+          <p className="text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-0.5 sm:mt-1 truncate">
             +{formatCurrency(totalProfit)}
           </p>
-          <p className="text-[10px] text-emerald-600 dark:text-emerald-500/80 mt-0.5 font-medium">{overallMargin}% profit margin</p>
+          <p className="text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-500/80 mt-0.5 font-medium truncate">{overallMargin}% profit margin</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
-          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Average Ticket Size
           </p>
-          <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-200 font-mono tabular-nums mt-1">
+          <p className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-slate-200 font-mono tabular-nums mt-0.5 sm:mt-1">
             {formatCurrency(filteredSales.length > 0 ? Math.round(totalRevenue / filteredSales.length) : 0)}
           </p>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Per retail transaction</p>
+          <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Per retail transaction</p>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function SalesHistoryPage() {
         />
       </div>
 
-      {/* Sales Transactions Table */}
+      {/* Sales Transactions Table / Cards */}
       <div className="rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden">
         {loading ? (
           <div className="py-16 text-center text-slate-500 dark:text-slate-400 text-xs">
@@ -156,66 +156,124 @@ export default function SalesHistoryPage() {
             <p>No transaction records found for this period.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/70 dark:bg-[#0b0f19]/60">
-                  <th className="px-5 py-3">Receipt Number</th>
-                  <th className="px-4 py-3">Date & Time</th>
-                  <th className="px-4 py-3">Payment</th>
-                  <th className="px-4 py-3 text-right">Items</th>
-                  <th className="px-4 py-3 text-right">Profit</th>
-                  <th className="px-4 py-3 text-right">Total Amount</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredSales.map((sale) => (
-                  <tr
-                    key={sale.id}
-                    onClick={() => setSelectedSale(sale)}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
-                  >
-                    <td className="px-5 py-3 font-mono font-bold text-slate-900 dark:text-slate-200">
-                      #{sale.receipt_number}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                      {new Date(sale.created_at).toLocaleString('en-IN', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
-                    </td>
-                    <td className="px-4 py-3">
+          <>
+            {/* Mobile Sales Cards View (<md screens) */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+              {filteredSales.map((sale) => (
+                <div
+                  key={sale.id}
+                  onClick={() => setSelectedSale(sale)}
+                  className="p-3.5 space-y-2.5 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 active:bg-slate-100/70 transition-colors cursor-pointer"
+                >
+                  {/* Top: Receipt # + Payment Pill + Time */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm text-slate-900 dark:text-white">
+                        #{sale.receipt_number}
+                      </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-[#0b0f19] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
                         {sale.payment_method}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-mono">
-                      {sale.items?.reduce((sum, item) => sum + item.quantity, 0) || 1}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">
-                      +{formatCurrency(sale.total_profit)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums font-extrabold text-slate-900 dark:text-white">
+                    </div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {new Date(sale.created_at).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+
+                  {/* Middle: Items & Profit & Total Amount */}
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                    <div className="text-slate-500 dark:text-slate-400 font-mono">
+                      <span>{sale.items?.reduce((sum, item) => sum + item.quantity, 0) || 1} items</span>
+                      {sale.total_profit > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold ml-2">
+                          +{formatCurrency(sale.total_profit)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono font-extrabold text-base text-slate-900 dark:text-white tabular-nums">
                       {formatCurrency(sale.total)}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedSale(sale);
-                        }}
-                        className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-medium border border-slate-200 dark:border-slate-700/60 transition-colors"
-                      >
-                        Receipt
-                      </button>
-                    </td>
+                    </span>
+                  </div>
+
+                  {/* Bottom Action Link */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {new Date(sale.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                    </span>
+                    <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                      <span>View Cash Memo</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View (>=md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/70 dark:bg-[#0b0f19]/60">
+                    <th className="px-5 py-3">Receipt Number</th>
+                    <th className="px-4 py-3">Date & Time</th>
+                    <th className="px-4 py-3">Payment</th>
+                    <th className="px-4 py-3 text-right">Items</th>
+                    <th className="px-4 py-3 text-right">Profit</th>
+                    <th className="px-4 py-3 text-right">Total Amount</th>
+                    <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {filteredSales.map((sale) => (
+                    <tr
+                      key={sale.id}
+                      onClick={() => setSelectedSale(sale)}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                    >
+                      <td className="px-5 py-3 font-mono font-bold text-slate-900 dark:text-slate-200">
+                        #{sale.receipt_number}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {new Date(sale.created_at).toLocaleString('en-IN', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-[#0b0f19] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
+                          {sale.payment_method}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-mono">
+                        {sale.items?.reduce((sum, item) => sum + item.quantity, 0) || 1}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">
+                        +{formatCurrency(sale.total_profit)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono tabular-nums font-extrabold text-slate-900 dark:text-white">
+                        {formatCurrency(sale.total)}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSale(sale);
+                          }}
+                          className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-medium border border-slate-200 dark:border-slate-700/60 transition-colors cursor-pointer"
+                        >
+                          Receipt
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

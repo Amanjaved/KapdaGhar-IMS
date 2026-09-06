@@ -162,34 +162,34 @@ function InventoryContent() {
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-3.5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Valuation (Cost)</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white font-mono tabular-nums mt-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Valuation (Cost)</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white font-mono tabular-nums mt-0.5 sm:mt-1 truncate">
             {formatCurrency(totalValuation)}
           </p>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Calculated from purchase price</p>
+          <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">Unit purchase cost</p>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Expected Retail Value</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-1">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Expected Retail Value</p>
+          <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-0.5 sm:mt-1 truncate">
             {formatCurrency(totalRetailValue)}
           </p>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Potential revenue on 100% sell-through</p>
+          <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">100% sell-through</p>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+        <div className="col-span-2 sm:col-span-1 p-3 sm:p-3.5 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Low Stock SKUs</p>
+            <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Low Stock SKUs</p>
             {lowStockCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
             )}
           </div>
-          <p className="text-xl font-bold text-amber-600 dark:text-amber-400 font-mono tabular-nums mt-1">
-            {lowStockCount}
+          <p className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-400 font-mono tabular-nums mt-0.5 sm:mt-1">
+            {lowStockCount} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">SKUs</span>
           </p>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Items at or below restock threshold</p>
+          <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">At or below restock threshold</p>
         </div>
       </div>
 
@@ -206,7 +206,7 @@ function InventoryContent() {
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar -webkit-overflow-scrolling-touch">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`h-8 px-3 rounded-md text-xs font-semibold shrink-0 transition-all ${
@@ -246,7 +246,7 @@ function InventoryContent() {
         </div>
       </div>
 
-      {/* Inventory Item Rows */}
+      {/* Inventory Item Rows / Cards */}
       <div className="rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden">
         {loading && products.length === 0 ? (
           <div className="py-20 text-center text-slate-500 dark:text-slate-400 text-xs space-y-3">
@@ -275,119 +275,247 @@ function InventoryContent() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/70 dark:bg-[#0b0f19]/60">
-                  <th className="px-4 py-3">Product</th>
-                  <th className="px-4 py-3">Category / SKU</th>
-                  <th className="px-4 py-3 text-right">Cost</th>
-                  <th className="px-4 py-3 text-right">Retail</th>
-                  <th className="px-4 py-3 text-right">Margin</th>
-                  <th className="px-4 py-3 text-center">Stock Level</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredProducts.map((product) => {
-                  const qty = product.quantity ?? 0;
-                  const isLow = qty <= product.low_stock_threshold;
-                  const isOut = qty <= 0;
-                  const unitMargin = product.selling_price - product.purchase_price;
-                  const marginPercent = product.selling_price > 0
+          <>
+            {/* Mobile Card List View (<md screens) - No Horizontal Scrolling! */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+              {filteredProducts.map((product) => {
+                const qty = product.quantity ?? 0;
+                const isLow = qty <= product.low_stock_threshold;
+                const isOut = qty <= 0;
+                const unitMargin = product.selling_price - product.purchase_price;
+                const marginPercent =
+                  product.selling_price > 0
                     ? ((unitMargin / product.selling_price) * 100).toFixed(0)
                     : '0';
 
-                  return (
-                    <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      {/* Product Thumbnail & Name */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden">
-                            {product.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
-                                <Tag className="w-4 h-4" />
-                              </div>
-                            )}
+                return (
+                  <div
+                    key={product.id}
+                    className="p-3.5 space-y-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+                  >
+                    {/* Header: Photo + Name + Category & Stock Pill */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
+                            <Tag className="w-5 h-5" />
                           </div>
-                          <div>
-                            <span className="font-semibold text-slate-900 dark:text-white leading-tight block">
-                              {product.name}
-                            </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-snug line-clamp-1">
+                            {product.name}
+                          </h3>
+                          {/* Stock badge */}
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono shrink-0 ${
+                              isOut
+                                ? 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30'
+                                : isLow
+                                ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30'
+                                : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
+                            }`}
+                          >
+                            {isOut ? 'Out of Stock' : `${qty} in stock`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                            {product.category_name}
+                          </span>
+                          {(product.sku || product.barcode) && (
+                            <>
+                              <span className="text-slate-300 dark:text-slate-700">•</span>
+                              <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">
+                                {product.sku || product.barcode}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pricing Grid */}
+                    <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-slate-50 dark:bg-[#0b0f19] border border-slate-200/80 dark:border-slate-800/80 text-center">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                          Retail
+                        </p>
+                        <p className="text-xs font-extrabold text-slate-900 dark:text-white font-mono tabular-nums mt-0.5">
+                          {formatCurrency(product.selling_price)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                          Cost
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-mono tabular-nums mt-0.5">
+                          {formatCurrency(product.purchase_price)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                          Margin
+                        </p>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-0.5">
+                          +{marginPercent}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Mobile Action Buttons */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setAdjustingProduct(product)}
+                        className="flex-1 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Boxes className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>Adjust Stock</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingProduct(product)}
+                        className="w-9 h-9 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/15 dark:hover:text-red-400 flex items-center justify-center transition-colors border border-slate-200 dark:border-slate-800 hover:border-red-200 dark:hover:border-red-500/30 active:scale-95 cursor-pointer"
+                        title={`Delete "${product.name}"`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (>=md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/70 dark:bg-[#0b0f19]/60">
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3">Category / SKU</th>
+                    <th className="px-4 py-3 text-right">Cost</th>
+                    <th className="px-4 py-3 text-right">Retail</th>
+                    <th className="px-4 py-3 text-right">Margin</th>
+                    <th className="px-4 py-3 text-center">Stock Level</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {filteredProducts.map((product) => {
+                    const qty = product.quantity ?? 0;
+                    const isLow = qty <= product.low_stock_threshold;
+                    const isOut = qty <= 0;
+                    const unitMargin = product.selling_price - product.purchase_price;
+                    const marginPercent =
+                      product.selling_price > 0
+                        ? ((unitMargin / product.selling_price) * 100).toFixed(0)
+                        : '0';
+
+                    return (
+                      <tr
+                        key={product.id}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        {/* Product Thumbnail & Name */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden">
+                              {product.image_url ? (
+                                <img
+                                  src={product.image_url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
+                                  <Tag className="w-4 h-4" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-900 dark:text-white leading-tight block">
+                                {product.name}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Category & SKU */}
-                      <td className="px-4 py-3">
-                        <span className="text-slate-700 dark:text-slate-300 block">{product.category_name}</span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono block mt-0.5">
-                          {product.sku || product.barcode || '—'}
-                        </span>
-                      </td>
+                        {/* Category & SKU */}
+                        <td className="px-4 py-3">
+                          <span className="text-slate-700 dark:text-slate-300 block">
+                            {product.category_name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono block mt-0.5">
+                            {product.sku || product.barcode || '—'}
+                          </span>
+                        </td>
 
-                      {/* Cost */}
-                      <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                        {formatCurrency(product.purchase_price)}
-                      </td>
+                        {/* Cost */}
+                        <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-500 dark:text-slate-400">
+                          {formatCurrency(product.purchase_price)}
+                        </td>
 
-                      {/* Retail */}
-                      <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-slate-900 dark:text-white">
-                        {formatCurrency(product.selling_price)}
-                      </td>
+                        {/* Retail */}
+                        <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-slate-900 dark:text-white">
+                          {formatCurrency(product.selling_price)}
+                        </td>
 
-                      {/* Margin */}
-                      <td className="px-4 py-3 text-right font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">
-                        +{marginPercent}%
-                      </td>
+                        {/* Margin */}
+                        <td className="px-4 py-3 text-right font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">
+                          +{marginPercent}%
+                        </td>
 
-                      {/* Stock Level Badge */}
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold font-mono ${
-                            isOut
-                              ? 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30'
-                              : isLow
-                              ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30'
-                              : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
-                          }`}
-                        >
-                          {isOut ? 'Out of Stock' : `${qty} in stock`}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setAdjustingProduct(product)}
-                            className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-medium border border-slate-200 dark:border-slate-700/60 transition-colors"
+                        {/* Stock Level Badge */}
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold font-mono ${
+                              isOut
+                                ? 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30'
+                                : isLow
+                                ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30'
+                                : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
+                            }`}
                           >
-                            Adjust Stock
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingProduct(product)}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/15 dark:hover:text-red-400 transition-colors"
-                            title={`Delete "${product.name}"`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                            {isOut ? 'Out of Stock' : `${qty} in stock`}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAdjustingProduct(product)}
+                              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-medium border border-slate-200 dark:border-slate-700/60 transition-colors cursor-pointer"
+                            >
+                              Adjust Stock
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingProduct(product)}
+                              className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/15 dark:hover:text-red-400 transition-colors cursor-pointer"
+                              title={`Delete "${product.name}"`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

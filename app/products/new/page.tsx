@@ -529,25 +529,25 @@ export default function AddProductPage() {
       )}
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => handleSaveProduct(true)}
-          disabled={isSubmitting}
-          className="h-11 rounded-lg bg-white dark:bg-[#0f1523] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white font-semibold text-xs border border-slate-200 dark:border-slate-800 transition-all flex items-center justify-center gap-1.5 shadow-xs"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Save & Add Another</span>
-        </button>
-
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="button"
           onClick={() => handleSaveProduct(false)}
           disabled={isSubmitting}
-          className="h-11 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-[0.99] flex items-center justify-center gap-1.5"
+          className="flex-1 h-12 sm:h-11 rounded-xl sm:rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer order-1 sm:order-2"
         >
           <Check className="w-4 h-4 stroke-[2.5]" />
           <span>{isSubmitting ? 'Saving to Catalog...' : 'Save Product'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSaveProduct(true)}
+          disabled={isSubmitting}
+          className="h-12 sm:h-11 rounded-xl sm:rounded-lg bg-white dark:bg-[#0f1523] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white font-semibold text-xs border border-slate-200 dark:border-slate-800 transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer order-2 sm:order-1"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Save & Add Another</span>
         </button>
       </div>
     </div>

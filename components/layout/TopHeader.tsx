@@ -70,12 +70,12 @@ export function TopHeader() {
       <div className="flex items-center gap-3">
         {/* Mobile-only logo */}
         <div className="md:hidden flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-xs shrink-0">
             KG
           </div>
-          <div>
-            <h1 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Kapda Ghar</h1>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400">Retail Suite</p>
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-tight truncate">Kapda Ghar</h1>
+            <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 truncate">Retail Suite</p>
           </div>
         </div>
 
@@ -88,7 +88,7 @@ export function TopHeader() {
       </div>
 
       {/* Right: Quick Actions, Theme Toggle & Connectivity Status */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* Quick Add Product Shortcut on Desktop */}
         <Link
           href="/products/new"
@@ -102,17 +102,17 @@ export function TopHeader() {
         {isAdmin && (
           <Link
             href="/admin"
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             title="Admin Console & Database Hub"
           >
             <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           </Link>
         )}
 
-        {/* Settings Button */}
+        {/* Settings Button - Hidden on mobile because it is permanently accessible in BottomNav */}
         <Link
           href="/settings"
-          className={`p-2 rounded-lg transition-colors ${
+          className={`hidden sm:inline-flex p-2 rounded-lg transition-colors ${
             pathname === '/settings'
               ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400'
               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -127,7 +127,7 @@ export function TopHeader() {
 
         {/* User Session Pill with Lock & Logout */}
         {user && (
-          <div className="flex items-center gap-1.5 pl-1">
+          <div className="flex items-center gap-1 sm:gap-1.5 pl-0.5 sm:pl-1">
             <div
               className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${
                 isAdmin
@@ -141,7 +141,7 @@ export function TopHeader() {
             <button
               onClick={lockTerminal}
               title="Lock Terminal (Require PIN)"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-colors cursor-pointer"
+              className="flex items-center gap-1 p-1.5 sm:px-2 sm:py-1.5 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-colors cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Lock</span>
@@ -151,36 +151,36 @@ export function TopHeader() {
               title="Log Out completely"
               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         )}
 
         {/* Auto-Sync / Connectivity Status */}
         {status.isSyncing ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-medium border border-indigo-500/20 shadow-xs">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-medium border border-indigo-500/20 shadow-xs">
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600 dark:text-indigo-400" />
             <span className="hidden sm:inline font-semibold">Auto-Syncing...</span>
           </div>
         ) : !status.isOnline ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium border border-amber-500/20">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium border border-amber-500/20">
             <WifiOff className="w-3.5 h-3.5" />
-            <span>Offline ({status.pendingCount})</span>
+            <span className="text-[11px] sm:text-xs">Offline ({status.pendingCount})</span>
           </div>
         ) : status.pendingCount > 0 ? (
           <button
             onClick={handleManualSync}
             title="Pending offline items — click to sync now"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium border border-amber-500/30 transition-colors cursor-pointer"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium border border-amber-500/30 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Sync ({status.pendingCount})</span>
+            <span className="text-[11px] sm:text-xs">Sync ({status.pendingCount})</span>
           </button>
         ) : (
           <button
             onClick={handleManualSync}
             title="Auto-Sync Active (Every 10s) • Multi-device real-time sync running (Click to sync now)"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/15 transition-all cursor-pointer shadow-xs active:scale-95"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/15 transition-all cursor-pointer shadow-xs active:scale-95"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="hidden sm:inline font-semibold">Auto-Sync</span>

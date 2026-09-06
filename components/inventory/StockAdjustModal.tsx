@@ -52,8 +52,8 @@ export function StockAdjustModal({ product, onClose, onUpdated }: StockAdjustMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-sm bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-5 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-sm max-h-[92vh] flex flex-col bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 sm:p-5 overflow-y-auto my-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
           <div>
@@ -62,9 +62,9 @@ export function StockAdjustModal({ product, onClose, onUpdated }: StockAdjustMod
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+            className="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -76,7 +76,7 @@ export function StockAdjustModal({ product, onClose, onUpdated }: StockAdjustMod
               setType('add');
               setReason('New Purchase');
             }}
-            className={`flex items-center justify-center gap-1.5 py-2 rounded-md font-semibold text-xs transition-all ${
+            className={`flex items-center justify-center gap-1.5 py-2.5 rounded-md font-semibold text-xs transition-all cursor-pointer ${
               type === 'add'
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -92,7 +92,7 @@ export function StockAdjustModal({ product, onClose, onUpdated }: StockAdjustMod
               setType('remove');
               setReason('Damaged Goods');
             }}
-            className={`flex items-center justify-center gap-1.5 py-2 rounded-md font-semibold text-xs transition-all ${
+            className={`flex items-center justify-center gap-1.5 py-2.5 rounded-md font-semibold text-xs transition-all cursor-pointer ${
               type === 'remove'
                 ? 'bg-red-600 text-white shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -136,7 +136,7 @@ export function StockAdjustModal({ product, onClose, onUpdated }: StockAdjustMod
               <button
                 type="button"
                 onClick={() => setAmount((prev) => Math.max(1, prev - 1))}
-                className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-800 dark:text-white font-bold text-sm active:scale-95 transition-all"
+                className="w-11 h-11 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-800 dark:text-white font-bold text-base active:scale-95 transition-all cursor-pointer"
               >
                 -
               </button>
@@ -145,12 +145,12 @@ export function StockAdjustModal({ product, onClose, onUpdated }: StockAdjustMod
                 min="1"
                 value={amount}
                 onChange={(e) => setAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                className="flex-1 h-10 text-center font-mono font-bold text-base rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="flex-1 h-11 text-center font-mono font-bold text-lg rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <button
                 type="button"
                 onClick={() => setAmount((prev) => prev + 1)}
-                className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-800 dark:text-white font-bold text-sm active:scale-95 transition-all"
+                className="w-11 h-11 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-800 dark:text-white font-bold text-base active:scale-95 transition-all cursor-pointer"
               >
                 +
               </button>

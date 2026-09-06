@@ -288,69 +288,114 @@ export default function DashboardPage() {
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/70 dark:bg-[#0b0f19]/60">
-                  <th className="px-5 py-2.5">Receipt #</th>
-                  <th className="px-4 py-2.5">Time</th>
-                  <th className="px-4 py-2.5">Payment</th>
-                  <th className="px-4 py-2.5 text-right">Items</th>
-                  <th className="px-4 py-2.5 text-right">Total</th>
-                  <th className="px-5 py-2.5 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {recentSales.map((sale) => (
-                  <tr
-                    key={sale.id}
-                    onClick={() => setSelectedSale(sale)}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors group"
-                  >
-                    <td className="px-5 py-3 font-mono font-semibold text-slate-900 dark:text-slate-200">
-                      #{sale.receipt_number}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+          <>
+            {/* Mobile Card View (<md screens) */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+              {recentSales.map((sale) => (
+                <div
+                  key={sale.id}
+                  onClick={() => setSelectedSale(sale)}
+                  className="p-3.5 space-y-2 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 active:bg-slate-100/70 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                        #{sale.receipt_number}
+                      </span>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
+                        {sale.payment_method}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
                       {new Date(sale.created_at).toLocaleTimeString('en-IN', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
-                        {sale.payment_method}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-mono">
-                      {sale.items?.reduce((s, i) => s + i.quantity, 0) || 1}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-bold text-slate-900 dark:text-white font-mono tabular-nums">
-                        {formatCurrency(sale.total)}
-                      </span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                      {sale.items?.reduce((s, i) => s + i.quantity, 0) || 1} items
                       {sale.total_profit > 0 && (
-                        <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold ml-2">
                           +{formatCurrency(sale.total_profit)}
                         </span>
                       )}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedSale(sale);
-                        }}
-                        className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium border border-slate-200 dark:border-slate-700/60 transition-colors"
-                      >
-                        Receipt
-                      </button>
-                    </td>
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-white font-mono tabular-nums text-sm">
+                      {formatCurrency(sale.total)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View (>=md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/70 dark:bg-[#0b0f19]/60">
+                    <th className="px-5 py-2.5">Receipt #</th>
+                    <th className="px-4 py-2.5">Time</th>
+                    <th className="px-4 py-2.5">Payment</th>
+                    <th className="px-4 py-2.5 text-right">Items</th>
+                    <th className="px-4 py-2.5 text-right">Total</th>
+                    <th className="px-5 py-2.5 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {recentSales.map((sale) => (
+                    <tr
+                      key={sale.id}
+                      onClick={() => setSelectedSale(sale)}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors group"
+                    >
+                      <td className="px-5 py-3 font-mono font-semibold text-slate-900 dark:text-slate-200">
+                        #{sale.receipt_number}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {new Date(sale.created_at).toLocaleTimeString('en-IN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
+                          {sale.payment_method}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-mono">
+                        {sale.items?.reduce((s, i) => s + i.quantity, 0) || 1}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-bold text-slate-900 dark:text-white font-mono tabular-nums">
+                          {formatCurrency(sale.total)}
+                        </span>
+                        {sale.total_profit > 0 && (
+                          <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            +{formatCurrency(sale.total_profit)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSale(sale);
+                          }}
+                          className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium border border-slate-200 dark:border-slate-700/60 transition-colors"
+                        >
+                          Receipt
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
