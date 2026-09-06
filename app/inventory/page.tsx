@@ -39,7 +39,8 @@ function InventoryContent() {
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
+    if (!silent && products.length === 0) setLoading(true);
     try {
       const [prods, cats] = await Promise.all([
         productService.getProducts(),
@@ -56,6 +57,13 @@ function InventoryContent() {
 
   useEffect(() => {
     loadData();
+
+    const handleCatalogRefreshed = () => {
+      loadData(true);
+    };
+
+    window.addEventListener('catalog-refreshed', handleCatalogRefreshed);
+    return () => window.removeEventListener('catalog-refreshed', handleCatalogRefreshed);
   }, []);
 
   const filteredProducts = useMemo(() => {

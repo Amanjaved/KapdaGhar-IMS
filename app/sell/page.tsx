@@ -57,6 +57,13 @@ export default function ScanAndSellPage() {
 
   useEffect(() => {
     loadCatalog();
+
+    const handleCatalogRefreshed = () => {
+      loadCatalog();
+    };
+
+    window.addEventListener('catalog-refreshed', handleCatalogRefreshed);
+    return () => window.removeEventListener('catalog-refreshed', handleCatalogRefreshed);
   }, []);
 
   // Filtered products

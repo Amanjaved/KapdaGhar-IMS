@@ -11,16 +11,37 @@ export interface TopProductMetric {
   revenue: number;
 }
 
+// In-memory cache for dashboard stats (fast 0ms return)
+let memoryStats: DashboardStats | null = null;
+let lastStatsFetch = 0;
+const STATS_TTL_MS = 10_000; // 10 seconds
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('sales-refreshed', () => {
+    memoryStats = null;
+  });
+  window.addEventListener('catalog-refreshed', () => {
+    memoryStats = null;
+  });
+}
+
 export const reportsService = {
-  async getDashboardStats(): Promise<DashboardStats> {
-    // If Supabase RPC is available and online, try get_dashboard_stats()
+  async getDashboardStats(forceRefresh: boolean = false): Promise<DashboardStats> {
+    const nowTime = Date.now();
+
+    // 1. Fast in-memory cache return
+    if (!forceRefresh && memoryStats && nowTime - lastStatsFetch < STATS_TTL_MS) {
+      return memoryStats;
+    }
+
+    // 2. If Supabase RPC is available and online, try get_dashboard_stats()
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
           const { data, error } = await supabase.rpc('get_dashboard_stats');
           if (!error && data) {
-            return {
+            memoryStats = {
               today_sales: Number(data.today_sales || 0),
               today_profit: Number(data.today_profit || 0),
               today_cost: Number(data.today_cost || 0),
@@ -30,6 +51,8 @@ export const reportsService = {
               month_sales: Number(data.month_sales || 0),
               month_profit: Number(data.month_profit || 0),
             };
+            lastStatsFetch = Date.now();
+            return memoryStats;
           }
         }
       } catch (err) {
@@ -37,7 +60,7 @@ export const reportsService = {
       }
     }
 
-    // Local IndexedDB Calculation fallback
+    // 3. Local IndexedDB Calculation fallback
     const db = await getDB();
     if (!db) {
       return {
@@ -99,7 +122,7 @@ export const reportsService = {
       (p) => (p.quantity ?? 0) <= p.low_stock_threshold
     ).length;
 
-    return {
+    memoryStats = {
       today_sales: Math.round(todaySales),
       today_profit: Math.round(todayProfit),
       today_cost: Math.round(todayCost),
@@ -109,6 +132,9 @@ export const reportsService = {
       month_sales: Math.round(monthSales),
       month_profit: Math.round(monthProfit),
     };
+    lastStatsFetch = Date.now();
+
+    return memoryStats;
   },
 
   async getTopProducts(limit: number = 5): Promise<TopProductMetric[]> {

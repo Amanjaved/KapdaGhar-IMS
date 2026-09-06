@@ -3,11 +3,44 @@ import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID, isValidUUID } from '@/lib/utils/uuid';
 import { CartItem, PaymentMethod, PendingSale, Sale, SaleItem } from '@/types';
 import { calculateGrossProfit, calculateItemProfit, calculateNetProfit, roundToTwo } from '@/lib/utils/currency';
+import { productService } from './productService';
+
+const DEFAULT_BUSINESS_ID = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-0000-0000-0000-000000000001';
+
+// Fast In-Memory Sales Cache
+let memorySales: Sale[] | null = null;
+let lastSalesSync = 0;
+const SALES_SYNC_TTL = 15_000; // 15s
+let pendingSalesSync: Promise<Sale[]> | null = null;
 
 function generateReceiptNumber(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   return `KG-${dateStr}-${randomSuffix}`;
+}
+
+function filterSalesByRange(sales: Sale[], filterRange: 'today' | 'yesterday' | 'week' | 'month' | 'all'): Sale[] {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 86400000;
+  const startOfWeek = startOfToday - now.getDay() * 86400000;
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  let filtered = sales;
+  if (filterRange === 'today') {
+    filtered = sales.filter((s) => new Date(s.created_at).getTime() >= startOfToday);
+  } else if (filterRange === 'yesterday') {
+    filtered = sales.filter((s) => {
+      const time = new Date(s.created_at).getTime();
+      return time >= startOfYesterday && time < startOfToday;
+    });
+  } else if (filterRange === 'week') {
+    filtered = sales.filter((s) => new Date(s.created_at).getTime() >= startOfWeek);
+  } else if (filterRange === 'month') {
+    filtered = sales.filter((s) => new Date(s.created_at).getTime() >= startOfMonth);
+  }
+
+  return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 export const salesService = {
@@ -36,7 +69,6 @@ export const salesService = {
     // Step 1: Atomic validation on local inventory
     const localTx = db.transaction(['products', 'inventory', 'sales', 'sale_items', 'inventory_movements', 'pending_sales'], 'readwrite');
     const inventoryStore = localTx.objectStore('inventory');
-    const productStore = localTx.objectStore('products');
 
     // Check available stock for each item before any deduction
     for (const item of items) {
@@ -87,6 +119,9 @@ export const salesService = {
           notes: `Sold in receipt #${receiptNumber}`,
           created_at: now,
         });
+
+        // Immediately update in-memory product cache for 0ms lag
+        productService.updateLocalProductStock(item.product.id, nextQty);
       }
 
       // Record snapshot sale item
@@ -109,30 +144,33 @@ export const salesService = {
 
     subtotal = roundToTwo(subtotal);
     totalCost = roundToTwo(totalCost);
-    const safeDiscount = roundToTwo(Math.min(discount, subtotal));
-    const total = roundToTwo(Math.max(0, subtotal - safeDiscount));
+
+    const safeDiscount = Math.min(Math.max(0, discount), subtotal);
+    const tax = 0; // GST-exempt or included
+    const total = roundToTwo(subtotal - safeDiscount + tax);
     const totalProfit = calculateNetProfit(total, totalCost);
 
     const completedSale: Sale = {
       id: saleId,
-      client_transaction_id: transactionId,
       receipt_number: receiptNumber,
+      client_transaction_id: transactionId,
+      business_id: DEFAULT_BUSINESS_ID,
       subtotal,
       discount: safeDiscount,
-      tax: 0,
+      tax,
       total,
       total_cost: totalCost,
       total_profit: totalProfit,
       payment_method: paymentMethod,
       status: 'completed',
       notes,
-      created_at: now,
       items: saleItemsList,
+      created_at: now,
     };
 
     await localTx.objectStore('sales').put(completedSale);
 
-    // Save into pending queue for cloud sync
+    // Record in pending_sales queue for reliable background sync
     const pendingRecord: PendingSale = {
       client_transaction_id: transactionId,
       receipt_number: receiptNumber,
@@ -157,7 +195,19 @@ export const salesService = {
     await localTx.objectStore('pending_sales').put(pendingRecord);
     await localTx.done;
 
-    // Step 3: Cloud Sync Attempt (if Supabase configured & online)
+    // Immediately update in-memory sales cache
+    if (memorySales) {
+      memorySales = [completedSale, ...memorySales];
+    } else {
+      memorySales = [completedSale];
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+      window.dispatchEvent(new CustomEvent('sales-refreshed'));
+    }
+
+    // Step 3: Cloud Sync Attempt in background
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
       try {
         const supabase = getSupabaseClient();
@@ -167,20 +217,17 @@ export const salesService = {
             quantity: i.quantity,
           }));
 
-          const businessId = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-0000-0000-0000-000000000001';
-
           const { data, error } = await supabase.rpc('complete_sale', {
             p_items: rpcItems,
             p_discount: safeDiscount,
             p_payment_method: paymentMethod,
             p_client_transaction_id: transactionId,
             p_receipt_number: receiptNumber,
-            p_business_id: businessId,
+            p_business_id: DEFAULT_BUSINESS_ID,
             p_notes: notes || null,
           });
 
           if (!error && (data?.success || data?.is_duplicate)) {
-            // Mark pending sale as synced
             const updateTx = db.transaction('pending_sales', 'readwrite');
             const pending = await updateTx.store.get(transactionId);
             if (pending) {
@@ -198,34 +245,67 @@ export const salesService = {
     return { success: true, sale: completedSale };
   },
 
-  async getSales(filterRange: 'today' | 'yesterday' | 'week' | 'month' | 'all' = 'all'): Promise<Sale[]> {
+  async getSales(
+    filterRange: 'today' | 'yesterday' | 'week' | 'month' | 'all' = 'all',
+    forceRefresh: boolean = false
+  ): Promise<Sale[]> {
+    const now = Date.now();
+
+    // 1. Return from in-memory cache if fresh
+    if (!forceRefresh && memorySales && now - lastSalesSync < SALES_SYNC_TTL) {
+      return filterSalesByRange(memorySales, filterRange);
+    }
+
+    // 2. Read from local IndexedDB if memory cache empty
     const db = await getDB();
+    if (!memorySales && db) {
+      const allSales = await db.getAll('sales');
+      const allItems = await db.getAll('sale_items');
 
-    // 1. Fetch remote sales from Supabase if configured & online
-    if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
+      const itemsBySale = new Map<string, SaleItem[]>();
+      for (const item of allItems) {
+        const list = itemsBySale.get(item.sale_id) || [];
+        list.push(item);
+        itemsBySale.set(item.sale_id, list);
+      }
+
+      memorySales = allSales.map((s) => ({
+        ...s,
+        items: s.items && s.items.length > 0 ? s.items : (itemsBySale.get(s.id) || []),
+      }));
+    }
+
+    // 3. Trigger cloud sync (await if cold boot or forceRefresh, otherwise background)
+    const shouldAwaitCloud = forceRefresh || !memorySales || memorySales.length === 0;
+    const syncPromise = this.syncSalesFromCloud();
+
+    if (shouldAwaitCloud) {
+      const freshSales = await syncPromise;
+      return filterSalesByRange(freshSales, filterRange);
+    }
+
+    // Background sync triggered, return local/cached immediately (0ms)
+    return filterSalesByRange(memorySales || [], filterRange);
+  },
+
+  async syncSalesFromCloud(): Promise<Sale[]> {
+    if (pendingSalesSync) return pendingSalesSync;
+
+    pendingSalesSync = (async () => {
       try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data: remoteSales, error } = await supabase
-            .from('sales')
-            .select(`
-              *,
-              sale_items (*)
-            `)
-            .order('created_at', { ascending: false });
+        if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            const { data: remoteSales, error } = await supabase
+              .from('sales')
+              .select(`
+                *,
+                sale_items (*)
+              `)
+              .order('created_at', { ascending: false });
 
-          if (!error && remoteSales !== null) {
-            if (db) {
-              const pending = await db.getAll('pending_sales');
-              const hasUnsynced = pending.some((p) => !p.synced);
-
-              const tx = db.transaction(['sales', 'sale_items'], 'readwrite');
-              if (!hasUnsynced) {
-                await tx.objectStore('sales').clear();
-                await tx.objectStore('sale_items').clear();
-              }
-
-              for (const rSale of remoteSales) {
+            if (!error && remoteSales !== null) {
+              const formattedSales: Sale[] = remoteSales.map((rSale: any) => {
                 const { sale_items: remoteItems, ...saleRecord } = rSale;
                 const formattedItems: SaleItem[] = (remoteItems || []).map((i: any) => ({
                   id: i.id,
@@ -240,7 +320,7 @@ export const salesService = {
                   created_at: i.created_at,
                 }));
 
-                const formattedSale: Sale = {
+                return {
                   ...saleRecord,
                   subtotal: Number(saleRecord.subtotal),
                   discount: Number(saleRecord.discount || 0),
@@ -250,64 +330,60 @@ export const salesService = {
                   total_profit: Number(saleRecord.total_profit || 0),
                   items: formattedItems,
                 };
+              });
 
-                await tx.objectStore('sales').put(formattedSale);
+              memorySales = formattedSales;
+              lastSalesSync = Date.now();
 
-                for (const item of formattedItems) {
-                  await tx.objectStore('sale_items').put(item);
+              // Batch save to IndexedDB asynchronously
+              const db = await getDB();
+              if (db) {
+                try {
+                  const pending = await db.getAll('pending_sales');
+                  const hasUnsynced = pending.some((p) => !p.synced);
+
+                  const tx = db.transaction(['sales', 'sale_items'], 'readwrite');
+                  if (!hasUnsynced) {
+                    await tx.objectStore('sales').clear();
+                    await tx.objectStore('sale_items').clear();
+                  }
+
+                  const sStore = tx.objectStore('sales');
+                  const siStore = tx.objectStore('sale_items');
+
+                  await Promise.all([
+                    ...formattedSales.map((s) => sStore.put(s)),
+                    ...formattedSales.flatMap((s) => (s.items || []).map((i) => siStore.put(i))),
+                  ]);
+                  await tx.done;
+                } catch (dbErr) {
+                  console.warn('Sales IndexedDB sync warning:', dbErr);
                 }
               }
-              await tx.done;
+
+              return formattedSales;
             }
           }
         }
       } catch (err) {
-        console.warn('Falling back to local IndexedDB sales:', err);
+        console.warn('Sales cloud sync error, using local:', err);
+      } finally {
+        pendingSalesSync = null;
       }
-    }
 
-    if (!db) return [];
+      return memorySales || [];
+    })();
 
-    let sales = await db.getAll('sales');
-    const allItems = await db.getAll('sale_items');
-
-    // Attach items to each sale
-    const itemsBySale = new Map<string, SaleItem[]>();
-    for (const item of allItems) {
-      const list = itemsBySale.get(item.sale_id) || [];
-      list.push(item);
-      itemsBySale.set(item.sale_id, list);
-    }
-
-    sales = sales.map((s) => ({
-      ...s,
-      items: s.items && s.items.length > 0 ? s.items : (itemsBySale.get(s.id) || []),
-    }));
-
-    // Date filtering
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfYesterday = startOfToday - 86400000;
-    const startOfWeek = startOfToday - now.getDay() * 86400000;
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-    if (filterRange === 'today') {
-      sales = sales.filter((s) => new Date(s.created_at).getTime() >= startOfToday);
-    } else if (filterRange === 'yesterday') {
-      sales = sales.filter((s) => {
-        const time = new Date(s.created_at).getTime();
-        return time >= startOfYesterday && time < startOfToday;
-      });
-    } else if (filterRange === 'week') {
-      sales = sales.filter((s) => new Date(s.created_at).getTime() >= startOfWeek);
-    } else if (filterRange === 'month') {
-      sales = sales.filter((s) => new Date(s.created_at).getTime() >= startOfMonth);
-    }
-
-    return sales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return pendingSalesSync;
   },
 
   async getSaleById(idOrReceipt: string): Promise<Sale | null> {
+    // Check in-memory first
+    if (memorySales) {
+      const match = memorySales.find((s) => s.id === idOrReceipt || s.receipt_number === idOrReceipt);
+      if (match) return match;
+    }
+
     const db = await getDB();
     if (db) {
       let sale = await db.get('sales', idOrReceipt);

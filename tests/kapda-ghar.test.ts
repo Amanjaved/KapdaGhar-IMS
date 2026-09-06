@@ -209,5 +209,31 @@ describe('Kapda Ghar - Catalog Management & Product Deletion Tests', () => {
     expect(sales.length).toBe(0);
     expect(saleItems.length).toBe(0);
   });
+
+  it('correctly extracts inventory quantity from both object and array Supabase PostgREST formats', async () => {
+    const { extractQuantity, extractCategoryName } = await import('../services/productService');
+
+    // Supabase PostgREST 1-to-1 object format
+    expect(extractQuantity({ quantity: 15 })).toBe(15);
+    expect(extractQuantity({ quantity: '25' })).toBe(25);
+    expect(extractQuantity({ quantity: 0 })).toBe(0);
+
+    // Array format
+    expect(extractQuantity([{ quantity: 30 }])).toBe(30);
+    expect(extractQuantity([{ quantity: 0 }])).toBe(0);
+    expect(extractQuantity([])).toBe(0);
+
+    // Direct number and null/undefined fallbacks
+    expect(extractQuantity(40)).toBe(40);
+    expect(extractQuantity(null)).toBe(0);
+    expect(extractQuantity(undefined)).toBe(0);
+
+    // Category name extraction
+    expect(extractCategoryName({ name: 'Men Wear' })).toBe('Men Wear');
+    expect(extractCategoryName([{ name: 'Electronics' }])).toBe('Electronics');
+    expect(extractCategoryName(null)).toBe('General');
+    expect(extractCategoryName(undefined)).toBe('General');
+  });
 });
+
 
