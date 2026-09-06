@@ -4,13 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { syncEngine } from '@/lib/offline/syncEngine';
-import { Wifi, WifiOff, RefreshCw, Store, Plus, ShoppingCart, ShieldCheck, LogOut, User, Settings } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Store, Plus, ShoppingCart, ShieldCheck, LogOut, User, Settings, Lock } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export function TopHeader() {
   const pathname = usePathname();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, lockTerminal } = useAuth();
   const [status, setStatus] = useState<{
     isOnline: boolean;
     isSyncing: boolean;
@@ -125,7 +125,7 @@ export function TopHeader() {
         {/* Theme Toggle Button */}
         <ThemeToggle />
 
-        {/* User Session Pill with Logout */}
+        {/* User Session Pill with Lock & Logout */}
         {user && (
           <div className="flex items-center gap-1.5 pl-1">
             <div
@@ -139,8 +139,16 @@ export function TopHeader() {
               <span>{user.full_name}</span>
             </div>
             <button
-              onClick={logout}
-              title="Log Out / Lock Register"
+              onClick={lockTerminal}
+              title="Lock Terminal (Require PIN)"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-colors cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Lock</span>
+            </button>
+            <button
+              onClick={() => logout()}
+              title="Log Out completely"
               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />

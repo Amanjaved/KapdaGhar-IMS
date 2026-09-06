@@ -15,13 +15,14 @@ import {
   ShieldCheck,
   LogOut,
   User,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export function DesktopSidebar() {
   const pathname = usePathname();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, lockTerminal } = useAuth();
 
   const links = [
     {
@@ -182,13 +183,22 @@ export function DesktopSidebar() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={logout}
-              title="Sign Out / Switch Shift"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={lockTerminal}
+                title="Lock Terminal (Require PIN)"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => logout()}
+                title="Sign Out / Switch Shift"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
 

@@ -169,3 +169,20 @@ export interface TableMetadata {
   description: string;
   rowCount: number;
 }
+
+export interface SecuritySettings {
+  session_timeout_minutes: number; // Maximum session duration (e.g. 240 min = 4 hours)
+  idle_timeout_minutes: number; // Inactivity auto-lock (e.g. 15 min, 0 = disabled)
+  require_pin_on_close: boolean; // Require PIN every time the app/browser is opened
+  max_failed_attempts: number; // Lockout threshold (default 5)
+  lockout_duration_seconds: number; // Lockout duration (default 60s)
+}
+
+export interface AuthSession {
+  user: UserProfile;
+  loginTime: number;
+  lastActiveTime: number;
+  expiresAt: number;
+  sessionToken: string;
+}
+
