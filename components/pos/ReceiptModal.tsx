@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Sale } from '@/types';
 import { formatCurrency } from '@/lib/utils/currency';
-import { Printer, CheckCircle2, MessageCircle, X, Plus, Share2, FileText } from 'lucide-react';
+import { Printer, CheckCircle2, MessageCircle, X, Plus, Share2, FileText, Download, Copy, Check, Phone, ImageIcon } from 'lucide-react';
+import { generateReceiptImageBlob, shareReceiptImageToWhatsApp } from '@/lib/utils/receiptImage';
 
 interface ReceiptModalProps {
   sale: Sale;
@@ -16,6 +17,10 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
   const [storeName, setStoreName] = useState(process.env.NEXT_PUBLIC_APP_NAME || 'Kapda Ghar');
   const [storePhone, setStorePhone] = useState(process.env.NEXT_PUBLIC_STORE_PHONE || '+91 98765 43210');
   const [storeAddress, setStoreAddress] = useState(process.env.NEXT_PUBLIC_STORE_ADDRESS || 'Main Market, New Delhi');
+  const [customerPhone, setCustomerPhone] = useState((sale as any).customer_phone || '');
+  const [isSharingImage, setIsSharingImage] = useState(false);
+  const [copiedImage, setCopiedImage] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -414,6 +419,74 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
     }, 200);
   };
 
+  const handleShareImageWhatsApp = async () => {
+    setIsSharingImage(true);
+    setShareNotice(null);
+    try {
+      const res = await shareReceiptImageToWhatsApp(
+        sale,
+        { name: storeName, address: storeAddress, phone: storePhone },
+        customerPhone
+      );
+      if (res.message) {
+        setShareNotice(res.message);
+        setTimeout(() => setShareNotice(null), 7000);
+      }
+    } catch (err: any) {
+      setShareNotice('Failed to generate image. Please try again.');
+      setTimeout(() => setShareNotice(null), 5000);
+    } finally {
+      setIsSharingImage(false);
+    }
+  };
+
+  const handleDownloadReceiptImage = async () => {
+    try {
+      const blob = await generateReceiptImageBlob(sale, {
+        name: storeName,
+        address: storeAddress,
+        phone: storePhone,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Receipt-${sale.receipt_number}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setShareNotice('Receipt image downloaded to device!');
+      setTimeout(() => setShareNotice(null), 4000);
+    } catch (err) {
+      console.error(err);
+      setShareNotice('Failed to download receipt image.');
+      setTimeout(() => setShareNotice(null), 4000);
+    }
+  };
+
+  const handleCopyReceiptImage = async () => {
+    try {
+      const blob = await generateReceiptImageBlob(sale, {
+        name: storeName,
+        address: storeAddress,
+        phone: storePhone,
+      });
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        const item = new ClipboardItem({ 'image/png': blob });
+        await navigator.clipboard.write([item]);
+        setCopiedImage(true);
+        setTimeout(() => setCopiedImage(false), 2500);
+        setShareNotice('Receipt image copied to clipboard! Paste (Ctrl+V) in WhatsApp.');
+        setTimeout(() => setShareNotice(null), 5000);
+      } else {
+        await handleDownloadReceiptImage();
+      }
+    } catch (err) {
+      console.error('Clipboard copy failed:', err);
+      await handleDownloadReceiptImage();
+    }
+  };
+
   const handleWhatsAppShare = () => {
     const itemsText = (sale.items || [])
       .map((item) => `• ${item.product_name} (${item.quantity}x) = ${formatCurrency(item.subtotal)}`)
@@ -432,8 +505,10 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
       `--------------------------------\n` +
       `Thank you for shopping with us!`;
 
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    const targetUrl = customerPhone
+      ? `https://wa.me/${customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(targetUrl, '_blank');
   };
 
   // Card modal max width based on preset
@@ -656,11 +731,70 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="shrink-0 p-3 sm:p-4 bg-slate-50 dark:bg-[#0d1322] border-t border-slate-200 dark:border-slate-800 space-y-2 print:hidden">
+        <div className="shrink-0 p-3 sm:p-4 bg-slate-50 dark:bg-[#0d1322] border-t border-slate-200 dark:border-slate-800 space-y-2.5 print:hidden">
+          {/* WhatsApp Digital Receipt Image Section */}
+          <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/25 border border-emerald-500/25 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>WhatsApp Receipt Image</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                One-Tap Image Sharing
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  type="tel"
+                  placeholder="Customer WhatsApp # (e.g. 9876543210)"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="w-full h-9 pl-7 pr-2.5 text-xs bg-white dark:bg-[#0b0f19] border border-emerald-300 dark:border-emerald-800/80 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                />
+                <Phone className="w-3.5 h-3.5 text-emerald-600/70 dark:text-emerald-400/70 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              <button
+                onClick={handleShareImageWhatsApp}
+                disabled={isSharingImage}
+                title="Share Receipt Image directly to WhatsApp"
+                className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>{isSharingImage ? 'Preparing...' : 'Send Image'}</span>
+              </button>
+
+              <button
+                onClick={handleDownloadReceiptImage}
+                title="Download Receipt Image (PNG)"
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={handleCopyReceiptImage}
+                title="Copy Receipt Image to Clipboard"
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer shrink-0"
+              >
+                {copiedImage ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {shareNotice && (
+              <div className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 bg-white/80 dark:bg-emerald-900/40 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 animate-in fade-in">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{shareNotice}</span>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center justify-center gap-2 h-10 rounded-lg bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white font-semibold text-xs transition-colors border border-slate-200 dark:border-slate-700 shadow-xs"
+              className="flex items-center justify-center gap-2 h-10 rounded-lg bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white font-semibold text-xs transition-colors border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-slate-400" />
               <span>Print ({paperWidth.toUpperCase()})</span>
@@ -668,16 +802,16 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
 
             <button
               onClick={handleWhatsAppShare}
-              className="flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors shadow-sm"
+              className="flex items-center justify-center gap-2 h-10 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
             >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>Send WhatsApp</span>
+              <FileText className="w-3.5 h-3.5 text-slate-400" />
+              <span>Send Text Bill</span>
             </button>
           </div>
 
           <button
             onClick={onNewSale}
-            className="w-full flex items-center justify-center gap-2 h-11 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-[0.99]"
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-[0.99] cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Next Customer Sale</span>
