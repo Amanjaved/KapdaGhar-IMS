@@ -8,6 +8,50 @@ import { syncEngine } from '@/lib/offline/syncEngine';
 let realtimeChannel: any = null;
 let broadcastChannel: BroadcastChannel | null = null;
 
+export type BroadcastChangeType =
+  | 'CATALOG_UPDATED'
+  | 'STOCK_UPDATED'
+  | 'SALES_UPDATED'
+  | 'CATALOG_WIPED'
+  | 'SALES_WIPED';
+
+async function handleCatalogWiped() {
+  productService.clearMemoryCache();
+  const db = await getDB();
+  if (db) {
+    try {
+      for (const store of ['products', 'inventory', 'inventory_movements', 'categories']) {
+        if (db.objectStoreNames.contains(store as any)) {
+          await db.clear(store as any);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed clearing local catalog stores on wipe:', e);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+  }
+}
+
+async function handleSalesWiped() {
+  const db = await getDB();
+  if (db) {
+    try {
+      for (const store of ['sales', 'sale_items', 'pending_sales', 'inventory_movements']) {
+        if (db.objectStoreNames.contains(store as any)) {
+          await db.clear(store as any);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed clearing local sales stores on wipe:', e);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sales-refreshed'));
+  }
+}
+
 export function initRealtimeSync() {
   if (typeof window === 'undefined') return;
 
@@ -15,9 +59,13 @@ export function initRealtimeSync() {
   if (!broadcastChannel && typeof window !== 'undefined' && 'BroadcastChannel' in window) {
     try {
       broadcastChannel = new BroadcastChannel('kapda-ghar-sync');
-      broadcastChannel.onmessage = (event) => {
+      broadcastChannel.onmessage = async (event) => {
         const { type, data } = event.data || {};
-        if (type === 'CATALOG_UPDATED') {
+        if (type === 'CATALOG_WIPED') {
+          await handleCatalogWiped();
+        } else if (type === 'SALES_WIPED') {
+          await handleSalesWiped();
+        } else if (type === 'CATALOG_UPDATED') {
           productService.invalidateCache();
           window.dispatchEvent(new CustomEvent('catalog-refreshed'));
         } else if (type === 'STOCK_UPDATED' && data) {
@@ -41,6 +89,25 @@ export function initRealtimeSync() {
 
     realtimeChannel = supabase
       .channel('kapda-ghar-live-changes')
+      .on('broadcast', { event: 'CATALOG_WIPED' }, async () => {
+        await handleCatalogWiped();
+      })
+      .on('broadcast', { event: 'SALES_WIPED' }, async () => {
+        await handleSalesWiped();
+      })
+      .on('broadcast', { event: 'CATALOG_UPDATED' }, () => {
+        productService.invalidateCache();
+        window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+      })
+      .on('broadcast', { event: 'STOCK_UPDATED' }, (payload: any) => {
+        if (payload?.payload?.productId) {
+          productService.updateLocalProductStock(payload.payload.productId, payload.payload.newQuantity);
+          window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+        }
+      })
+      .on('broadcast', { event: 'SALES_UPDATED' }, () => {
+        window.dispatchEvent(new CustomEvent('sales-refreshed'));
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'inventory' },
@@ -115,12 +182,26 @@ export function initRealtimeSync() {
 }
 
 export function broadcastLocalChange(
-  type: 'CATALOG_UPDATED' | 'STOCK_UPDATED' | 'SALES_UPDATED',
+  type: BroadcastChangeType,
   data?: any
 ) {
+  // 1. Cross-tab BroadcastChannel
   if (broadcastChannel) {
     try {
       broadcastChannel.postMessage({ type, data });
     } catch (e) {}
+  }
+
+  // 2. Cross-device Supabase Realtime broadcast (Phone <-> Laptop <-> Desktop)
+  if (realtimeChannel) {
+    try {
+      realtimeChannel.send({
+        type: 'broadcast',
+        event: type,
+        payload: data || {},
+      });
+    } catch (e) {
+      console.warn('Realtime broadcast error:', e);
+    }
   }
 }

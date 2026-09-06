@@ -48,6 +48,24 @@ function notifyCatalogUpdated() {
 
 export const productService = {
   /**
+   * Completely purge in-memory caches (e.g. after wiping database or switching account)
+   */
+  clearMemoryCache() {
+    memoryProducts = null;
+    memoryCategories = null;
+    lastProductsSync = 0;
+    lastCategoriesSync = 0;
+  },
+
+  /**
+   * Invalidate cache to force next read to re-sync from cloud
+   */
+  invalidateCache() {
+    lastProductsSync = 0;
+    lastCategoriesSync = 0;
+  },
+
+  /**
    * Fast categories fetch with in-memory caching and background sync
    */
   async getCategories(forceRefresh: boolean = false): Promise<Category[]> {
@@ -424,6 +442,7 @@ export const productService = {
       updated_at: now,
       quantity: openingStock,
     };
+    (newProduct as any)._is_pending_cloud_sync = true;
 
     // 1. Immediately store in in-memory cache (0ms lag)
     if (memoryProducts) {
@@ -536,6 +555,14 @@ export const productService = {
                   : Promise.resolve(),
               ]);
 
+              // Cloud sync succeeded: clear pending flag in local DB
+              delete (newProduct as any)._is_pending_cloud_sync;
+              if (db) {
+                try {
+                  await db.put('products', newProduct);
+                } catch (_) {}
+              }
+
               broadcastLocalChange('CATALOG_UPDATED');
             } else {
               console.error('Failed to create product in Supabase:', prodErr);
@@ -608,13 +635,6 @@ export const productService = {
     await deleteProduct(id);
   },
 
-  invalidateCache() {
-    memoryProducts = null;
-    memoryCategories = null;
-    lastProductsSync = 0;
-    lastCategoriesSync = 0;
-  },
-
   /**
    * Pushes any local active products in IndexedDB (such as "map 2") to Supabase.
    */
@@ -633,17 +653,16 @@ export const productService = {
     let errors = 0;
 
     try {
-      const [localProducts, localInventory, cloudRes] = await Promise.all([
+      const [localProducts, localInventory] = await Promise.all([
         db.getAll('products'),
         db.getAll('inventory'),
-        supabase.from('products').select('id'),
       ]);
 
-      const cloudIdSet = new Set((cloudRes.data || []).map((p: any) => p.id));
       const invMap = new Map(localInventory.map((i) => [i.product_id, i.quantity]));
 
-      // Filter active local products that are not yet in Supabase
-      const unsynced = localProducts.filter((p) => p.is_active && !cloudIdSet.has(p.id));
+      // CRITICAL: Only push products that were explicitly created offline and have _is_pending_cloud_sync === true.
+      // NEVER push items simply because cloud is empty (which happens during admin wipe or across multiple devices)!
+      const unsynced = localProducts.filter((p) => p.is_active && (p as any)._is_pending_cloud_sync === true);
 
       if (unsynced.length === 0) {
         return { uploaded: 0, errors: 0 };
@@ -709,6 +728,10 @@ export const productService = {
               quantity: qty,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'product_id' });
+
+            // Clear pending sync flag on successful upload
+            delete (prod as any)._is_pending_cloud_sync;
+            await db.put('products', prod);
 
             uploaded++;
           } else {

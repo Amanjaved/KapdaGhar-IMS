@@ -40,12 +40,12 @@ function InventoryContent() {
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadData = async (silent = false) => {
-    if (!silent && products.length === 0) setLoading(true);
+  const loadData = async (forceRefresh = false) => {
+    if (!forceRefresh && products.length === 0) setLoading(true);
     try {
       const [prods, cats] = await Promise.all([
-        productService.getProducts(),
-        productService.getCategories(),
+        productService.getProducts(undefined, undefined, forceRefresh),
+        productService.getCategories(forceRefresh),
       ]);
       setProducts(prods);
       setCategories(cats);
@@ -58,13 +58,6 @@ function InventoryContent() {
 
   useEffect(() => {
     loadData();
-
-    // Automatically push any local unsynced products (like map 2) to Supabase
-    productService.pushLocalCatalogToCloud().then((res) => {
-      if (res.uploaded > 0) {
-        loadData(true);
-      }
-    });
 
     const handleCatalogRefreshed = () => {
       loadData(true);

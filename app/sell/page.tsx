@@ -42,11 +42,11 @@ export default function ScanAndSellPage() {
   const [barcodeInput, setBarcodeInput] = useState('');
 
   // Load catalog
-  const loadCatalog = async () => {
+  const loadCatalog = async (forceRefresh = false) => {
     try {
       const [prods, cats] = await Promise.all([
-        productService.getProducts(),
-        productService.getCategories(),
+        productService.getProducts(undefined, undefined, forceRefresh),
+        productService.getCategories(forceRefresh),
       ]);
       setProducts(prods);
       setCategories(cats);
@@ -59,7 +59,7 @@ export default function ScanAndSellPage() {
     loadCatalog();
 
     const handleCatalogRefreshed = () => {
-      loadCatalog();
+      loadCatalog(true);
     };
 
     window.addEventListener('catalog-refreshed', handleCatalogRefreshed);

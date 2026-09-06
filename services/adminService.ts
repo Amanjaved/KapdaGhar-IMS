@@ -2,6 +2,8 @@ import { getDB } from '@/lib/indexeddb/db';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID, isValidUUID } from '@/lib/utils/uuid';
 import { Business, DatabaseTableName, TableMetadata, UserProfile, UserRole } from '@/types';
+import { productService } from '@/services/productService';
+import { broadcastLocalChange } from '@/lib/supabase/realtime';
 
 export const TABLE_CONFIGS: { name: DatabaseTableName; label: string; description: string }[] = [
   { name: 'products', label: 'Products Catalog', description: 'Product master data, SKUs, barcodes, cost & retail prices' },
@@ -688,6 +690,19 @@ export const adminService = {
       }
     }
 
+    if (tableName === 'products' || tableName === 'categories' || tableName === 'inventory') {
+      productService.clearMemoryCache();
+      broadcastLocalChange('CATALOG_WIPED');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+      }
+    } else if (tableName === 'sales' || tableName === 'sale_items' || tableName === 'inventory_movements') {
+      broadcastLocalChange('SALES_WIPED');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sales-refreshed'));
+      }
+    }
+
     return { success: true, deletedCount: count };
   },
 
@@ -713,6 +728,11 @@ export const adminService = {
       } catch (err) {
         console.warn('Failed to clear Supabase transactions:', err);
       }
+    }
+
+    broadcastLocalChange('SALES_WIPED');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sales-refreshed'));
     }
   },
 
@@ -742,6 +762,18 @@ export const adminService = {
       } catch (err) {
         console.warn('Failed to clear Supabase tables during wipe:', err);
       }
+    }
+
+    // Purge in-memory product/category cache
+    productService.clearMemoryCache();
+
+    // Broadcast wipe to all open browser tabs and multi-device WebSocket clients
+    broadcastLocalChange('CATALOG_WIPED');
+    broadcastLocalChange('SALES_WIPED');
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+      window.dispatchEvent(new CustomEvent('sales-refreshed'));
     }
   },
 
