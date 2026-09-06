@@ -31,10 +31,10 @@
 
 /* Mobile safe area padding utilities */
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
 }
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0.5rem);
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0.5rem));
 }
 
 /* Custom sleek scrollbar */

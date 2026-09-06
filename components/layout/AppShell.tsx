@@ -21,9 +21,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <DesktopSidebar />
 
           {/* Main Content Area */}
-          <div className="flex-1 md:pl-64 flex flex-col pb-28 md:pb-8 pb-safe transition-all">
+          <div className="flex-1 md:pl-64 flex flex-col min-h-screen transition-all">
             <TopHeader />
-            <main className="flex-1 max-w-[1400px] w-full mx-auto p-3.5 sm:p-6 lg:p-8">
+            <main className="flex-1 max-w-[1400px] w-full mx-auto p-3.5 sm:p-6 lg:p-8 pb-32 sm:pb-36 md:pb-12">
               {children}
             </main>
           </div>
