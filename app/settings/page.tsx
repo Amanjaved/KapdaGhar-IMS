@@ -19,6 +19,7 @@ import {
   Laptop,
   Lock,
   Shield,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -103,10 +104,23 @@ export default function SettingsPage() {
     const res = await syncEngine.runFullAutoSync(true);
     setIsSyncing(false);
     if (!res.success && res.errors > 0) {
-      setSyncMessage(`Sync: ${res.syncedCount} synced, ${res.errors} error(s) — ${res.message}`);
+      setSyncMessage(`Sync warning: ${res.syncedCount} synced, ${res.errors} error(s) — ${res.message}`);
     } else {
       setSyncMessage(`✓ Auto-sync completed: ${res.message}`);
     }
+  };
+
+  const handleClearPendingQueue = async () => {
+    if (!syncEngine) return;
+    const count = syncStatus.pendingCount || 0;
+    if (count === 0) return;
+    const confirmed = window.confirm(
+      `Discard ${count} pending offline transaction(s)?\n\nThese sales will be removed from your local offline queue and will NOT be uploaded to the cloud database.`
+    );
+    if (!confirmed) return;
+    const res = await syncEngine.clearPendingQueue();
+    setSyncMessage(`✓ Cleared ${res.clearedCount} pending offline transaction(s)`);
+    setTimeout(() => setSyncMessage(null), 4000);
   };
 
   const hasCloud = isSupabaseConfigured();
@@ -296,7 +310,15 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2">
               <span className="text-slate-500 dark:text-slate-400">
                 Pending Offline Transactions:{' '}
-                <strong className="text-slate-900 dark:text-white font-mono">{syncStatus.pendingCount || 0}</strong>
+                <strong
+                  className={`font-mono ${
+                    (syncStatus.pendingCount || 0) > 0
+                      ? 'text-amber-600 dark:text-amber-400 font-bold'
+                      : 'text-slate-900 dark:text-white'
+                  }`}
+                >
+                  {syncStatus.pendingCount || 0}
+                </strong>
               </span>
             </div>
             {syncStatus.lastSyncedAt && (
@@ -305,18 +327,45 @@ export default function SettingsPage() {
               </p>
             )}
           </div>
-          <button
-            onClick={handleManualSync}
-            disabled={isSyncing}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Auto-Syncing...' : 'Run Full Auto-Sync Now'}</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {(syncStatus.pendingCount || 0) > 0 && (
+              <button
+                type="button"
+                onClick={handleClearPendingQueue}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 font-semibold text-xs transition-all active:scale-95 cursor-pointer shrink-0"
+                title="Discard pending offline queue"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Discard Queue</span>
+              </button>
+            )}
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>
+                {isSyncing
+                  ? 'Auto-Syncing...'
+                  : (syncStatus.pendingCount || 0) > 0
+                  ? `Sync Now (${syncStatus.pendingCount})`
+                  : 'Run Full Auto-Sync Now'}
+              </span>
+            </button>
+          </div>
         </div>
 
         {syncMessage && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{syncMessage}</p>
+          <p
+            className={`text-xs font-medium ${
+              syncMessage.includes('warning') || syncMessage.includes('error')
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-emerald-600 dark:text-emerald-400'
+            }`}
+          >
+            {syncMessage}
+          </p>
         )}
       </div>
 

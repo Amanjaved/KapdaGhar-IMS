@@ -183,10 +183,13 @@ class SyncEngine {
       totalUploaded += pushRes.uploaded;
       totalErrors += pushRes.errors;
 
-      // 2. Push any offline pending sales
-      const salesRes = await this.syncPendingTransactions();
+      // 2. Push any offline pending sales directly
+      const salesRes = await this.executePendingTransactionsSync();
       totalUploaded += salesRes.syncedCount;
       totalErrors += salesRes.errors;
+      if (salesRes.lastError && !statusMsg) {
+        statusMsg = salesRes.lastError;
+      }
 
       // 3. Pull latest categories from Supabase
       await productService.syncCategoriesFromCloud();
@@ -201,9 +204,13 @@ class SyncEngine {
       }
 
       this.lastSyncedAt = new Date();
-      statusMsg = totalUploaded > 0
-        ? `Synced ${totalUploaded} item(s) with cloud`
-        : `Up to date (${this.lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+      if (totalErrors > 0) {
+        statusMsg = `Sync warning: ${totalErrors} item(s) failed (${statusMsg || 'retry'})`;
+      } else if (totalUploaded > 0) {
+        statusMsg = `Synced ${totalUploaded} item(s) with cloud`;
+      } else {
+        statusMsg = `Up to date (${this.lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+      }
     } catch (err: any) {
       console.warn('Auto-sync cycle warning:', err);
       totalErrors++;
@@ -236,6 +243,25 @@ class SyncEngine {
     return this.pendingCount;
   }
 
+  public async clearPendingQueue(): Promise<{ clearedCount: number }> {
+    const db = await getDB();
+    if (!db) return { clearedCount: 0 };
+
+    let clearedCount = 0;
+    if (db.objectStoreNames.contains('pending_sales')) {
+      const all = await db.getAll('pending_sales');
+      clearedCount = all.length;
+      await db.clear('pending_sales');
+    }
+
+    await this.updatePendingCount();
+    this.notify(undefined, `Cleared ${clearedCount} pending transaction(s)`);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sales-refreshed'));
+    }
+    return { clearedCount };
+  }
+
   private async handleOnline() {
     this.notify();
     await this.runFullAutoSync();
@@ -249,11 +275,32 @@ class SyncEngine {
       return { syncedCount: 0, errors: 0 };
     }
 
-    const db = await getDB();
-    if (!db) return { syncedCount: 0, errors: 0 };
-
     this.isSyncing = true;
     this.notify();
+    try {
+      const res = await this.executePendingTransactionsSync();
+      if (res.syncedCount > 0 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sales-refreshed'));
+      }
+      return res;
+    } finally {
+      this.isSyncing = false;
+      await this.updatePendingCount();
+      this.notify();
+    }
+  }
+
+  /**
+   * Internal execution of pending sales sync (caller controls isSyncing guard)
+   */
+  private async executePendingTransactionsSync(): Promise<{ syncedCount: number; errors: number; lastError?: string }> {
+    if (!isSupabaseConfigured() || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      await this.updatePendingCount();
+      return { syncedCount: 0, errors: 0 };
+    }
+
+    const db = await getDB();
+    if (!db) return { syncedCount: 0, errors: 0 };
 
     let syncedCount = 0;
     let errors = 0;
@@ -268,6 +315,11 @@ class SyncEngine {
 
       const allPending = await db.getAll('pending_sales');
       const unsynced = allPending.filter((p) => !p.synced);
+
+      if (unsynced.length === 0) {
+        return { syncedCount: 0, errors: 0 };
+      }
+
       const allLocalProducts = await db.getAll('products');
 
       // 1. Build migration map for any non-UUID product IDs (e.g. prod-17885... or p0000000-...)
@@ -409,9 +461,17 @@ class SyncEngine {
             pending.sync_error = error.message;
             await db.put('pending_sales', pending);
           } else if (data?.success || data?.is_duplicate) {
-            pending.synced = true;
-            pending.sync_error = undefined;
-            await db.put('pending_sales', pending);
+            // Remove from pending outbox queue
+            try {
+              await db.delete('pending_sales', pending.client_transaction_id);
+              if (validTxId !== pending.client_transaction_id) {
+                await db.delete('pending_sales', validTxId);
+              }
+            } catch {
+              pending.synced = true;
+              pending.sync_error = undefined;
+              await db.put('pending_sales', pending);
+            }
             syncedCount++;
           } else {
             const msg = data?.message || 'Transaction could not be confirmed';
@@ -431,10 +491,6 @@ class SyncEngine {
     } catch (err: any) {
       console.warn('Sync engine run failed:', err);
       lastError = err?.message || 'Sync engine error';
-    } finally {
-      this.isSyncing = false;
-      await this.updatePendingCount();
-      this.notify();
     }
 
     return { syncedCount, errors, lastError };
