@@ -38,11 +38,11 @@ export default function DashboardPage() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (force: boolean = false) => {
     try {
       const [statsData, salesData] = await Promise.all([
-        reportsService.getDashboardStats(),
-        salesService.getSales('today'),
+        reportsService.getDashboardStats(force),
+        salesService.getSales('today', force),
       ]);
       setStats(statsData);
       setRecentSales(salesData.slice(0, 6));
@@ -57,7 +57,7 @@ export default function DashboardPage() {
     loadDashboardData();
 
     const handleLiveRefresh = () => {
-      loadDashboardData();
+      loadDashboardData(true);
     };
 
     window.addEventListener('sales-refreshed', handleLiveRefresh);

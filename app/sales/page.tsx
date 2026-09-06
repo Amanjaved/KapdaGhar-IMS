@@ -25,10 +25,10 @@ export default function SalesHistoryPage() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadSales = async () => {
+  const loadSales = async (force: boolean = false) => {
     setLoading(true);
     try {
-      const data = await salesService.getSales(filterRange);
+      const data = await salesService.getSales(filterRange, force);
       setSales(data);
     } catch (err) {
       console.error('Failed to load sales history:', err);
@@ -41,7 +41,7 @@ export default function SalesHistoryPage() {
     loadSales();
 
     const handleRefresh = () => {
-      loadSales();
+      loadSales(true);
     };
 
     window.addEventListener('sales-refreshed', handleRefresh);

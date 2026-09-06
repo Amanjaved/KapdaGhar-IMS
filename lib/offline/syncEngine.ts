@@ -2,6 +2,7 @@ import { getDB } from '@/lib/indexeddb/db';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID, isValidUUID, toValidUUID } from '@/lib/utils/uuid';
 import { productService } from '@/services/productService';
+import { salesService } from '@/services/salesService';
 
 export interface SyncStatus {
   isOnline: boolean;
@@ -191,13 +192,20 @@ class SyncEngine {
         statusMsg = salesRes.lastError;
       }
 
-      // 3. Pull latest categories from Supabase
+      // 3. Pull latest sales from Supabase (keeps multiple terminals and phones in sync)
+      try {
+        await salesService.syncSalesFromCloud();
+      } catch (salesErr) {
+        console.warn('Sync sales from cloud error:', salesErr);
+      }
+
+      // 4. Pull latest categories from Supabase
       await productService.syncCategoriesFromCloud();
 
-      // 4. Pull latest products and inventory from Supabase (purges deleted items)
+      // 5. Pull latest products and inventory from Supabase (purges deleted items)
       await productService.syncProductsFromCloud();
 
-      // 5. Notify all open tabs and UI pages
+      // 6. Notify all open tabs and UI pages
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('catalog-refreshed'));
         window.dispatchEvent(new CustomEvent('sales-refreshed'));
