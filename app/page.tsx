@@ -73,115 +73,116 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Top Header & Overview Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800/80">
+      <div className="flex items-center justify-between gap-3 pb-1 border-b border-slate-200/80 dark:border-slate-800/80">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               Store Dashboard
             </h2>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20">
-              Active Shift
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Shift
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
             <span>{todayFormatted}</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/reports"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors shadow-xs"
-          >
-            <span>Analytics & Margins</span>
-            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
-          </Link>
-        </div>
+        <Link
+          href="/reports"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-2xs active:scale-95 transition-all shrink-0"
+        >
+          <span>Analytics</span>
+          <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+        </Link>
       </div>
 
       {/* Quick Launchpad Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {/* Primary POS Register Launchpad */}
         <Link
           href="/sell"
-          className="group relative md:col-span-2 p-5 rounded-xl bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 dark:from-indigo-950 dark:via-indigo-900/60 dark:to-slate-900 border border-indigo-400/40 dark:border-indigo-500/30 hover:border-indigo-400/80 dark:hover:border-indigo-500/60 shadow-lg shadow-indigo-600/10 dark:shadow-indigo-950/40 transition-all flex items-center justify-between overflow-hidden text-white"
+          className="group relative md:col-span-2 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 border border-indigo-400/40 shadow-xl shadow-indigo-600/15 hover:shadow-indigo-600/25 active:scale-[0.99] transition-all flex flex-col justify-between overflow-hidden text-white"
         >
+          {/* Subtle decorative glow circle */}
+          <div className="absolute -top-12 -right-12 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
           <div className="space-y-1.5 relative z-10">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/20 dark:bg-indigo-500/20 text-white dark:text-indigo-300 text-[11px] font-semibold border border-white/20 dark:border-indigo-400/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 dark:bg-indigo-400 animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/20 dark:bg-white/15 text-white text-[10px] font-bold border border-white/25">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
               COUNTER REGISTER
             </div>
-            <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Scan & Sell Terminal</span>
+            <h3 className="text-base sm:text-lg font-extrabold text-white tracking-tight flex items-center gap-2">
+              Scan & Sell Terminal
             </h3>
-            <p className="text-xs text-indigo-100 dark:text-slate-400 font-normal max-w-md">
-              Fast barcode scanning, stock-aware checkout, and instant digital & thermal receipts.
+            <p className="text-xs text-indigo-100 font-normal leading-relaxed max-w-md">
+              Fast barcode scanning, stock-aware checkout & instant digital receipts.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 relative z-10 shrink-0">
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="text-[10px] uppercase font-mono text-indigo-200 dark:text-slate-400">Shortcut</span>
-              <kbd className="text-xs px-2 py-0.5 rounded bg-white/20 dark:bg-slate-800 text-white dark:text-slate-300 font-mono border border-white/30 dark:border-slate-700">
-                F2
-              </kbd>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-white/20 dark:bg-indigo-600 group-hover:bg-white/30 dark:group-hover:bg-indigo-500 text-white flex items-center justify-center shadow-md backdrop-blur-xs transition-transform group-hover:scale-105 border border-white/20 dark:border-transparent">
-              <ShoppingCart className="w-6 h-6 stroke-[2.2]" />
-            </div>
+          <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-white/15 relative z-10">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-indigo-700 text-xs font-bold shadow-sm group-hover:bg-indigo-50 transition-colors">
+              <ShoppingCart className="w-4 h-4 stroke-[2.4]" />
+              <span>Open POS Register</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+            </span>
+            <span className="hidden sm:inline-flex text-[10px] font-mono text-indigo-200 px-2 py-1 rounded-lg bg-white/10 border border-white/15">
+              F2 Shortcut
+            </span>
           </div>
         </Link>
 
-        {/* Secondary Shortcuts (Vertical Stack) */}
-        <div className="grid grid-cols-2 md:grid-cols-1 gap-3">
+        {/* Secondary Shortcuts (Vertical Stack on Desktop, 2 cols on mobile) */}
+        <div className="grid grid-cols-2 md:grid-cols-1 gap-2.5 sm:gap-3">
           <Link
             href="/products/new"
-            className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-xs transition-all"
+            className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all"
           >
-            <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
               <Plus className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Add Product</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Catalog & Barcode</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Catalog & Barcode</p>
             </div>
           </Link>
 
           <Link
             href="/inventory"
-            className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-xs transition-all"
+            className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all"
           >
-            <div className="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
               <Package className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Stock Inventory</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Levels & Valuation</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Levels & Valuation</p>
             </div>
           </Link>
         </div>
       </div>
 
       {/* KPI Performance Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Today's Gross Sales */}
-        <div className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Today's Gross Sales
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Today's Sales
             </span>
-            <span className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
               <ReceiptText className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2">
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums tracking-tight">
+            <p className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white font-mono tabular-nums tracking-tight">
               {formatCurrency(stats.today_sales)}
             </p>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400">
               <span>{stats.transactions} sales</span>
               <span>•</span>
               <span>Avg {formatCurrency(averageTicket)}</span>
@@ -190,43 +191,43 @@ export default function DashboardPage() {
         </div>
 
         {/* Today's Net Profit */}
-        <div className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Net Profit Margin
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Net Profit
             </span>
-            <span className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <TrendingUp className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2">
-            <p className="text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums tracking-tight">
+            <p className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tabular-nums tracking-tight">
               {formatCurrency(stats.today_profit)}
             </p>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-500/90 font-medium">
+            <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px] text-emerald-600 dark:text-emerald-500 font-semibold">
               <span>{profitMargin}% margin</span>
-              <span className="text-slate-400 dark:text-slate-500">•</span>
-              <span className="text-slate-500 dark:text-slate-400">COGS: {formatCurrency(stats.today_cost)}</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span className="text-slate-500 dark:text-slate-400 font-normal">COGS: {formatCurrency(stats.today_cost)}</span>
             </div>
           </div>
         </div>
 
         {/* Units Sold */}
-        <div className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Units Sold
             </span>
-            <span className="p-1.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
               <Layers className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2">
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums tracking-tight">
+            <p className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white font-mono tabular-nums tracking-tight">
               {stats.items_sold}
             </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">
-              <span>Across {stats.transactions} customer tickets</span>
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 truncate">
+              <span>Across {stats.transactions} tickets</span>
             </div>
           </div>
         </div>
@@ -234,25 +235,25 @@ export default function DashboardPage() {
         {/* Stock Health & Alerts */}
         <Link
           href="/inventory?filter=low"
-          className="p-4 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 hover:border-amber-400 dark:hover:border-amber-500/40 shadow-xs transition-colors group block"
+          className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800/80 hover:border-amber-400 dark:hover:border-amber-500/40 shadow-2xs active:scale-98 transition-all group block"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Stock Alerts
             </span>
-            <span className="p-1.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2">
-            <div className="flex items-baseline gap-2">
-              <p className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono tabular-nums">
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono tabular-nums">
                 {stats.low_stock_count}
               </p>
-              <span className="text-xs text-slate-500 dark:text-slate-400">SKUs low</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">SKUs low</span>
             </div>
-            <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-[11px] text-amber-600 dark:text-amber-400/90 font-medium group-hover:underline">
-              <span>{stats.low_stock_count > 0 ? 'Requires restock' : 'Stock healthy'}</span>
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold group-hover:underline">
+              <span>{stats.low_stock_count > 0 ? 'Restock required' : 'Stock healthy'}</span>
               <ArrowRight className="w-3 h-3 ml-0.5" />
             </div>
           </div>
@@ -260,31 +261,45 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Sales Register Feed */}
-      <div className="rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <ReceiptText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Recent Transactions Today</h4>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">({recentSales.length})</span>
+      <div className="rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <ReceiptText className="w-4 h-4" />
+            </div>
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+              Recent Sales
+            </h4>
+            <span className="text-[11px] font-mono px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+              {recentSales.length}
+            </span>
           </div>
           <Link
             href="/sales"
-            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
+            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors shrink-0"
           >
-            <span>Complete Sales Ledger</span>
-            <ArrowRight className="w-3 h-3" />
+            <span>View All</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {recentSales.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
-            <p className="font-medium">No sales recorded yet today.</p>
+          <div className="py-10 px-4 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/40 flex items-center justify-center mx-auto">
+              <ReceiptText className="w-6 h-6 stroke-[1.8]" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-slate-900 dark:text-white">No transactions recorded today</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs mx-auto leading-relaxed">
+                Ready for customer checkout. Start ringing up sales on the terminal.
+              </p>
+            </div>
             <Link
               href="/sell"
-              className="inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors shadow-xs"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
             >
-              <ShoppingCart className="w-3.5 h-3.5" />
-              <span>Start First Sale</span>
+              <ShoppingCart className="w-3.5 h-3.5 stroke-[2.4]" />
+              <span>Start New Sale</span>
             </Link>
           </div>
         ) : (
@@ -295,7 +310,7 @@ export default function DashboardPage() {
                 <div
                   key={sale.id}
                   onClick={() => setSelectedSale(sale)}
-                  className="p-3.5 space-y-2 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 active:bg-slate-100/70 transition-colors cursor-pointer"
+                  className="p-3.5 space-y-2 hover:bg-slate-50/60 dark:hover:bg-slate-850 active:bg-slate-100/70 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
