@@ -492,16 +492,26 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
       .map((item) => `• ${item.product_name} (${item.quantity}x) = ${formatCurrency(item.subtotal)}`)
       .join('\n');
 
+    const isUdhar = sale.payment_method === 'udhar' || (sale.balance_due !== undefined && sale.balance_due > 0);
+    const custHeader = sale.customer_name ? `Customer: *${sale.customer_name}*\n` : '';
+    const paymentLine = isUdhar
+      ? `Bill Total: ${formatCurrency(sale.total)}\n` +
+        `Paid Now: ${formatCurrency(sale.paid_amount || 0)}\n` +
+        `*BALANCE DUE (UDHAR):* *${formatCurrency(sale.balance_due || sale.total)}*\n`
+      : `*TOTAL PAID:* *${formatCurrency(sale.total)}*\n`;
+
     const message =
       `*${storeName} — Sales Receipt*\n` +
       `--------------------------------\n` +
       `Receipt No: *#${sale.receipt_number}*\n` +
-      `Date: ${new Date(sale.created_at).toLocaleString('en-IN')}\n\n` +
+      `Date: ${new Date(sale.created_at).toLocaleString('en-IN')}\n` +
+      custHeader +
+      `--------------------------------\n` +
       `*Items:*\n${itemsText}\n\n` +
       `Subtotal: ${formatCurrency(sale.subtotal)}\n` +
       (sale.discount > 0 ? `Discount: -${formatCurrency(sale.discount)}\n` : '') +
-      `*TOTAL PAID:* *${formatCurrency(sale.total)}*\n` +
-      `Payment: ${sale.payment_method.toUpperCase()}\n` +
+      paymentLine +
+      `Payment: ${sale.payment_method === 'udhar' ? 'UDHAR / CREDIT' : sale.payment_method.toUpperCase()}\n` +
       `--------------------------------\n` +
       `Thank you for shopping with us!`;
 
@@ -675,8 +685,16 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Payment Mode:</span>
-                  <span className="font-bold uppercase text-slate-800">{sale.payment_method}</span>
+                  <span className={`font-bold uppercase ${sale.payment_method === 'udhar' ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {sale.payment_method === 'udhar' ? 'UDHAR / CREDIT' : sale.payment_method}
+                  </span>
                 </div>
+                {sale.customer_name && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Customer:</span>
+                    <span className="font-bold text-slate-900">{sale.customer_name}</span>
+                  </div>
+                )}
               </div>
 
               {/* Items Table */}
@@ -715,10 +733,27 @@ export function ReceiptModal({ sale, onClose, onNewSale }: ReceiptModalProps) {
                     <span className="tabular-nums">-{formatCurrency(sale.discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm font-bold text-slate-950 pt-1 border-t border-slate-200">
-                  <span>TOTAL PAID:</span>
-                  <span className="text-base tabular-nums">{formatCurrency(sale.total)}</span>
-                </div>
+                {sale.payment_method === 'udhar' || (sale.balance_due !== undefined && sale.balance_due > 0) ? (
+                  <>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Bill Total:</span>
+                      <span className="tabular-nums font-semibold">{formatCurrency(sale.total)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Paid Now:</span>
+                      <span className="tabular-nums font-semibold">{formatCurrency(sale.paid_amount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-rose-600 pt-1 border-t border-slate-200">
+                      <span>UDHAR DUE:</span>
+                      <span className="text-base tabular-nums font-black">{formatCurrency(sale.balance_due || sale.total)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm font-bold text-slate-950 pt-1 border-t border-slate-200">
+                    <span>TOTAL PAID:</span>
+                    <span className="text-base tabular-nums">{formatCurrency(sale.total)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Footer Note */}

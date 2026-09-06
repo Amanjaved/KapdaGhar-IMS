@@ -15,6 +15,7 @@ import {
   DollarSign,
   Layers,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import { reportsService } from '@/services/reportsService';
 import { salesService } from '@/services/salesService';
@@ -219,13 +220,26 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        {/* Secondary Shortcuts (Vertical Stack on Desktop, 2 cols on mobile) */}
-        <div className="grid grid-cols-2 md:grid-cols-1 gap-2.5 sm:gap-3">
+        {/* Secondary Shortcuts (Vertical Stack on Desktop, 3 cols on mobile) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-1 gap-2 sm:gap-2.5">
+          <Link
+            href="/khata"
+            className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all group"
+          >
+            <div className="w-8.5 h-8.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/20 group-hover:scale-105 transition-transform">
+              <BookOpen className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Customer Khata</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Udhar & WhatsApp</p>
+            </div>
+          </Link>
+
           <Link
             href="/products/new"
-            className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all"
+            className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all group"
           >
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+            <div className="w-8.5 h-8.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20 group-hover:scale-105 transition-transform">
               <Plus className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="min-w-0">
@@ -236,9 +250,9 @@ export default function DashboardPage() {
 
           <Link
             href="/inventory"
-            className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all"
+            className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-[#0f1523] border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 shadow-2xs hover:shadow-xs active:scale-98 transition-all group"
           >
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
+            <div className="w-8.5 h-8.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover:scale-105 transition-transform">
               <Package className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div className="min-w-0">

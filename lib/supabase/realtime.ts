@@ -14,7 +14,8 @@ export type BroadcastChangeType =
   | 'STOCK_UPDATED'
   | 'SALES_UPDATED'
   | 'CATALOG_WIPED'
-  | 'SALES_WIPED';
+  | 'SALES_WIPED'
+  | 'KHATA_UPDATED';
 
 async function handleCatalogWiped() {
   productService.clearMemoryCache();
@@ -76,6 +77,8 @@ export function initRealtimeSync() {
         } else if (type === 'SALES_UPDATED') {
           salesService.invalidateCache();
           window.dispatchEvent(new CustomEvent('sales-refreshed'));
+        } else if (type === 'KHATA_UPDATED') {
+          window.dispatchEvent(new CustomEvent('khata-refreshed'));
         }
       };
     } catch (e) {
@@ -218,9 +221,32 @@ export function initRealtimeSync() {
           }
         }
       )
+      .on('broadcast', { event: 'KHATA_UPDATED' }, async () => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('khata-refreshed'));
+        }
+      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customers' },
+        async () => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('khata-refreshed'));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customer_transactions' },
+        async () => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('khata-refreshed'));
+          }
+        }
+      )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('⚡ Realtime connected: live auto-sync active for stock, catalog, and sales.');
+          console.log('⚡ Realtime connected: live auto-sync active for stock, catalog, sales, and khata.');
         }
       });
   } catch (err) {

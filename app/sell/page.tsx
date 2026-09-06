@@ -4,8 +4,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { productService } from '@/services/productService';
 import { salesService } from '@/services/salesService';
-import { Category, Product, CartItem, PaymentMethod, Sale } from '@/types';
-import { formatCurrency } from '@/lib/utils/currency';
+import { khataService } from '@/services/khataService';
+import { Category, Product, CartItem, PaymentMethod, Sale, Customer } from '@/types';
+import { formatCurrency, roundToTwo } from '@/lib/utils/currency';
 import { ReceiptModal } from '@/components/pos/ReceiptModal';
 import {
   Search,
@@ -24,6 +25,10 @@ import {
   Layers,
   ArrowRight,
   Package,
+  BookOpen,
+  UserCheck,
+  UserPlus,
+  Users,
 } from 'lucide-react';
 
 export default function ScanAndSellPage() {
@@ -41,6 +46,16 @@ export default function ScanAndSellPage() {
   const [showBarcodePrompt, setShowBarcodePrompt] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
 
+  // Customer Khata state for Udhar sales
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
+  const [quickCustomerName, setQuickCustomerName] = useState('');
+  const [quickCustomerPhone, setQuickCustomerPhone] = useState('');
+  const [paidNowInput, setPaidNowInput] = useState('');
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+
   // Load catalog
   const loadCatalog = async (forceRefresh = false) => {
     try {
@@ -55,15 +70,33 @@ export default function ScanAndSellPage() {
     }
   };
 
+  const loadCustomers = async (forceRefresh = false) => {
+    try {
+      const custList = await khataService.getCustomers(undefined, 'all', forceRefresh);
+      setCustomers(custList);
+    } catch (err) {
+      console.warn('Failed to load customers for POS:', err);
+    }
+  };
+
   useEffect(() => {
     loadCatalog();
+    loadCustomers();
 
     const handleCatalogRefreshed = () => {
       loadCatalog(true);
     };
 
+    const handleKhataRefreshed = () => {
+      loadCustomers(true);
+    };
+
     window.addEventListener('catalog-refreshed', handleCatalogRefreshed);
-    return () => window.removeEventListener('catalog-refreshed', handleCatalogRefreshed);
+    window.addEventListener('khata-refreshed', handleKhataRefreshed);
+    return () => {
+      window.removeEventListener('catalog-refreshed', handleCatalogRefreshed);
+      window.removeEventListener('khata-refreshed', handleKhataRefreshed);
+    };
   }, []);
 
   // Filtered products
@@ -146,13 +179,32 @@ export default function ScanAndSellPage() {
   const handleCompleteSale = async () => {
     if (cart.length === 0 || isSubmitting) return;
 
+    if (paymentMethod === 'udhar') {
+      if (!selectedCustomer) {
+        setErrorMsg('Please select or add a customer for Udhar / Credit sale.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setErrorMsg(null);
+
+    const paidNow = paymentMethod === 'udhar'
+      ? Math.min(total, Math.max(0, parseFloat(paidNowInput) || 0))
+      : total;
+    const balanceDue = paymentMethod === 'udhar'
+      ? Math.max(0, total - paidNow)
+      : 0;
 
     const res = await salesService.completeSale({
       items: cart,
       discount,
       paymentMethod,
+      customerId: selectedCustomer?.id,
+      customerName: selectedCustomer?.name,
+      customerPhone: selectedCustomer?.phone,
+      paidAmount: paidNow,
+      balanceDue: balanceDue,
     });
 
     setIsSubmitting(false);
@@ -161,10 +213,44 @@ export default function ScanAndSellPage() {
       setCompletedSale(res.sale);
       setCart([]);
       setDiscount(0);
+      setSelectedCustomer(null);
+      setPaidNowInput('');
+      setCustomerSearch('');
       setIsCartOpen(false);
       loadCatalog();
+      loadCustomers(true);
     } else {
       setErrorMsg(res.error || 'Failed to complete sale');
+    }
+  };
+
+  const handleQuickCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickCustomerName.trim()) {
+      setErrorMsg('Customer name is required');
+      return;
+    }
+    if (!quickCustomerPhone.trim() || quickCustomerPhone.trim().length < 8) {
+      setErrorMsg('Valid phone number is required');
+      return;
+    }
+
+    setIsCreatingCustomer(true);
+    setErrorMsg(null);
+    try {
+      const created = await khataService.createCustomer({
+        name: quickCustomerName,
+        phone: quickCustomerPhone,
+      });
+      setSelectedCustomer(created);
+      setShowQuickAddCustomer(false);
+      setQuickCustomerName('');
+      setQuickCustomerPhone('');
+      await loadCustomers(true);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to create customer');
+    } finally {
+      setIsCreatingCustomer(false);
     }
   };
 
@@ -294,20 +380,21 @@ export default function ScanAndSellPage() {
         <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
           Payment Method
         </span>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-5 gap-1">
           {(
             [
               { id: 'cash', label: 'Cash', icon: Banknote },
               { id: 'upi', label: 'UPI', icon: QrCode },
               { id: 'card', label: 'Card', icon: CreditCard },
               { id: 'mixed', label: 'Split', icon: Layers },
+              { id: 'udhar', label: 'Udhar', icon: BookOpen },
             ] as { id: PaymentMethod; label: string; icon: any }[]
           ).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => setPaymentMethod(id)}
-              className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              className={`h-9 rounded-md text-[11px] font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
                 paymentMethod === id
                   ? 'bg-indigo-600 text-white shadow-sm border border-indigo-400/40'
                   : 'bg-slate-100 dark:bg-[#0b0f19] text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
@@ -319,6 +406,183 @@ export default function ScanAndSellPage() {
           ))}
         </div>
       </div>
+
+      {/* Customer Khata Selector & Partial Payment (When Udhar is selected) */}
+      {paymentMethod === 'udhar' && (
+        <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-[#0b101e] border border-indigo-200 dark:border-indigo-900/60 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Customer Khata (Credit)</span>
+            </span>
+            {selectedCustomer && (
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
+                className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
+              >
+                Change Customer
+              </button>
+            )}
+          </div>
+
+          {/* Selected Customer View */}
+          {selectedCustomer ? (
+            <div className="space-y-2">
+              <div className="p-2 rounded-lg bg-white dark:bg-[#080c16] border border-indigo-200/80 dark:border-indigo-900/80 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">
+                    {selectedCustomer.name}
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    {selectedCustomer.phone}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] text-slate-400 uppercase font-semibold block">Existing Udhar</span>
+                  <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400">
+                    {formatCurrency(selectedCustomer.total_due || 0)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Partial Payment input */}
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-600 dark:text-slate-400 text-[11px]">
+                    Paid Now (Cash/UPI):
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-500 font-mono text-xs">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={total}
+                      placeholder="0 (full udhar)"
+                      value={paidNowInput}
+                      onChange={(e) => setPaidNowInput(e.target.value)}
+                      className="w-24 h-7 px-2 text-right rounded bg-white dark:bg-[#080c16] border border-slate-300 dark:border-slate-700 font-mono font-semibold text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Calculation breakdown */}
+                {(() => {
+                  const paid = Math.min(total, Math.max(0, parseFloat(paidNowInput) || 0));
+                  const creditDue = Math.max(0, total - paid);
+                  const newTotalCustDue = roundToTwo((selectedCustomer.total_due || 0) + creditDue);
+
+                  return (
+                    <div className="p-2 rounded bg-slate-100 dark:bg-[#070a13] text-[11px] space-y-1 font-mono">
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>Adding to Udhar:</span>
+                        <span className="font-bold text-rose-600 dark:text-rose-400">+{formatCurrency(creditDue)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-700 dark:text-slate-300 pt-0.5 border-t border-slate-200 dark:border-slate-800">
+                        <span>New Total Customer Due:</span>
+                        <span className="font-black text-rose-600 dark:text-rose-400">{formatCurrency(newTotalCustDue)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : (
+            /* Search or Quick Add Customer */
+            <div className="space-y-2">
+              {!showQuickAddCustomer ? (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search customer by name or phone..."
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      className="w-full h-8 pl-8 pr-3 text-xs rounded-lg bg-white dark:bg-[#080c16] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  {/* Filtered customer options */}
+                  <div className="max-h-28 overflow-y-auto space-y-1">
+                    {customers
+                      .filter((c) => {
+                        if (!customerSearch.trim()) return true;
+                        const q = customerSearch.toLowerCase().trim();
+                        return c.name.toLowerCase().includes(q) || c.phone.includes(q);
+                      })
+                      .slice(0, 4)
+                      .map((cust) => (
+                        <button
+                          key={cust.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCustomer(cust);
+                            setCustomerSearch('');
+                          }}
+                          className="w-full p-1.5 text-left rounded bg-white dark:bg-[#080c16] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs transition-colors"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white block leading-tight">{cust.name}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{cust.phone}</span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400">
+                            Due: {formatCurrency(cust.total_due || 0)}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddCustomer(true)}
+                    className="w-full py-1.5 rounded-lg border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Quick Add New Customer</span>
+                  </button>
+                </>
+              ) : (
+                /* Quick Add Form */
+                <div className="space-y-1.5 p-2 rounded-lg bg-white dark:bg-[#080c16] border border-indigo-200 dark:border-indigo-900">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-900 dark:text-white">Quick Add Customer</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddCustomer(false)}
+                      className="text-[10px] text-slate-400 hover:text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Customer Name *"
+                    value={quickCustomerName}
+                    onChange={(e) => setQuickCustomerName(e.target.value)}
+                    className="w-full h-7 px-2 text-xs rounded bg-slate-50 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="10-digit Mobile *"
+                    value={quickCustomerPhone}
+                    onChange={(e) => setQuickCustomerPhone(e.target.value)}
+                    className="w-full h-7 px-2 text-xs font-mono rounded bg-slate-50 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickCreateCustomer}
+                    disabled={isCreatingCustomer}
+                    className="w-full h-7 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs"
+                  >
+                    {isCreatingCustomer ? 'Adding...' : 'Save & Select'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {errorMsg && (
         <div className="flex items-center gap-2 p-2 rounded-md bg-red-500/15 text-red-600 dark:text-red-400 text-xs border border-red-500/30">
@@ -335,6 +599,8 @@ export default function ScanAndSellPage() {
         className={`w-full h-12 rounded-lg font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.99] ${
           cart.length === 0
             ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-700/40'
+            : paymentMethod === 'udhar'
+            ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/25 border border-rose-400/30'
             : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 border border-emerald-400/30'
         }`}
       >
@@ -344,6 +610,8 @@ export default function ScanAndSellPage() {
             ? 'Recording Transaction...'
             : cart.length === 0
             ? 'Cart is Empty'
+            : paymentMethod === 'udhar'
+            ? `Record Udhar Sale (${formatCurrency(total)})`
             : `Charge ${formatCurrency(total)}`}
         </span>
       </button>

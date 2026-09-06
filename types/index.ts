@@ -1,4 +1,4 @@
-export type PaymentMethod = 'cash' | 'upi' | 'card' | 'mixed';
+export type PaymentMethod = 'cash' | 'upi' | 'card' | 'mixed' | 'udhar';
 export type SaleStatus = 'completed' | 'cancelled' | 'refunded';
 export type MovementType = 'purchase' | 'sale' | 'return' | 'adjustment' | 'damage';
 
@@ -68,6 +68,34 @@ export interface InventoryMovement {
   created_at: string;
 }
 
+export interface Customer {
+  id: string;
+  business_id?: string;
+  name: string;
+  phone: string;
+  address?: string;
+  notes?: string;
+  total_due: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerTransaction {
+  id: string;
+  business_id?: string;
+  customer_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  sale_id?: string;
+  type: 'credit' | 'payment';
+  amount: number;
+  payment_method?: 'cash' | 'upi' | 'card' | 'bank' | 'other';
+  receipt_number?: string;
+  notes?: string;
+  balance_after: number;
+  created_at: string;
+}
+
 export interface Sale {
   id: string;
   business_id?: string;
@@ -84,6 +112,11 @@ export interface Sale {
   notes?: string;
   created_at: string;
   items?: SaleItem[];
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  paid_amount?: number;
+  balance_due?: number;
 }
 
 export interface SaleItem {

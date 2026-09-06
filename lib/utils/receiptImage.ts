@@ -26,10 +26,11 @@ export async function generateReceiptImageBlob(
   
   // Calculate dynamic height
   const items = sale.items || [];
-  const baseHeaderHeight = 160;
+  const isUdhar = sale.payment_method === 'udhar' || (sale.balance_due !== undefined && sale.balance_due > 0);
+  const baseHeaderHeight = sale.customer_name ? 180 : 160;
   const itemRowHeight = 26;
   const itemsHeight = Math.max(items.length, 1) * itemRowHeight;
-  const totalsHeight = sale.discount > 0 ? 110 : 88;
+  const totalsHeight = (sale.discount > 0 ? 30 : 0) + (isUdhar ? 135 : 88);
   const footerHeight = 70;
   const totalLogicalHeight = baseHeaderHeight + itemsHeight + totalsHeight + footerHeight;
 
@@ -117,9 +118,22 @@ export async function generateReceiptImageBlob(
   ctx.fillStyle = '#475569';
   ctx.fillText('Payment Mode:', padX, y);
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#0f172a';
+  ctx.fillStyle = isUdhar ? '#e11d48' : '#0f172a';
   ctx.font = `bold 11px ${fontMono}`;
-  ctx.fillText(sale.payment_method.toUpperCase(), width - padX, y);
+  ctx.fillText(sale.payment_method === 'udhar' ? 'UDHAR / CREDIT' : sale.payment_method.toUpperCase(), width - padX, y);
+
+  // Customer Name if attached
+  if (sale.customer_name) {
+    y += 18;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#475569';
+    ctx.font = `11px ${fontMono}`;
+    ctx.fillText('Customer:', padX, y);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#0f172a';
+    ctx.font = `bold 11px ${fontMono}`;
+    ctx.fillText(sale.customer_name, width - padX, y);
+  }
 
   // Divider
   y += 15;
@@ -214,15 +228,43 @@ export async function generateReceiptImageBlob(
     ctx.fillText(`-${formatCurrency(sale.discount)}`, width - padX, y);
   }
 
-  // Big Bold Total Paid
-  y += 24;
-  ctx.fillStyle = '#0f172a';
-  ctx.font = `bold 16px ${fontMono}`;
-  ctx.textAlign = 'left';
-  ctx.fillText('TOTAL PAID:', padX, y);
-  ctx.textAlign = 'right';
-  ctx.font = `bold 18px ${fontMono}`;
-  ctx.fillText(formatCurrency(sale.total), width - padX, y);
+  if (isUdhar) {
+    y += 20;
+    ctx.font = `12px ${fontMono}`;
+    ctx.fillStyle = '#475569';
+    ctx.textAlign = 'left';
+    ctx.fillText('Bill Total:', padX, y);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#0f172a';
+    ctx.fillText(formatCurrency(sale.total), width - padX, y);
+
+    y += 18;
+    ctx.fillStyle = '#059669';
+    ctx.textAlign = 'left';
+    ctx.fillText('Paid Now:', padX, y);
+    ctx.textAlign = 'right';
+    ctx.fillText(formatCurrency(sale.paid_amount || 0), width - padX, y);
+
+    // Big Bold Balance Due
+    y += 24;
+    ctx.fillStyle = '#e11d48';
+    ctx.font = `bold 14px ${fontMono}`;
+    ctx.textAlign = 'left';
+    ctx.fillText('BALANCE DUE (UDHAR):', padX, y);
+    ctx.textAlign = 'right';
+    ctx.font = `bold 17px ${fontMono}`;
+    ctx.fillText(formatCurrency(sale.balance_due || sale.total), width - padX, y);
+  } else {
+    // Big Bold Total Paid
+    y += 24;
+    ctx.fillStyle = '#0f172a';
+    ctx.font = `bold 16px ${fontMono}`;
+    ctx.textAlign = 'left';
+    ctx.fillText('TOTAL PAID:', padX, y);
+    ctx.textAlign = 'right';
+    ctx.font = `bold 18px ${fontMono}`;
+    ctx.fillText(formatCurrency(sale.total), width - padX, y);
+  }
 
   // Divider
   y += 16;

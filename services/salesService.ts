@@ -4,6 +4,7 @@ import { generateUUID, isValidUUID } from '@/lib/utils/uuid';
 import { CartItem, PaymentMethod, PendingSale, Sale, SaleItem } from '@/types';
 import { calculateGrossProfit, calculateItemProfit, calculateNetProfit, roundToTwo } from '@/lib/utils/currency';
 import { productService } from './productService';
+import { khataService } from './khataService';
 import { broadcastLocalChange } from '@/lib/supabase/realtime';
 
 const DEFAULT_BUSINESS_ID = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-0000-0000-0000-000000000001';
@@ -57,8 +58,24 @@ export const salesService = {
     paymentMethod: PaymentMethod;
     notes?: string;
     clientTransactionId?: string;
+    customerId?: string;
+    customerName?: string;
+    customerPhone?: string;
+    paidAmount?: number;
+    balanceDue?: number;
   }): Promise<{ success: boolean; sale?: Sale; error?: string }> {
-    const { items, discount = 0, paymentMethod, notes, clientTransactionId } = params;
+    const {
+      items,
+      discount = 0,
+      paymentMethod,
+      notes,
+      clientTransactionId,
+      customerId,
+      customerName,
+      customerPhone,
+      paidAmount,
+      balanceDue,
+    } = params;
 
     if (!items || items.length === 0) {
       return { success: false, error: 'Cannot complete sale with empty cart.' };
@@ -157,6 +174,9 @@ export const salesService = {
     const total = roundToTwo(subtotal - safeDiscount + tax);
     const totalProfit = calculateNetProfit(total, totalCost);
 
+    const actualPaid = paidAmount !== undefined ? paidAmount : (paymentMethod === 'udhar' ? 0 : total);
+    const actualDue = balanceDue !== undefined ? balanceDue : (paymentMethod === 'udhar' ? total : 0);
+
     const completedSale: Sale = {
       id: saleId,
       receipt_number: receiptNumber,
@@ -173,6 +193,11 @@ export const salesService = {
       notes,
       items: saleItemsList,
       created_at: now,
+      customer_id: customerId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      paid_amount: actualPaid,
+      balance_due: actualDue,
     };
 
     await localTx.objectStore('sales').put(completedSale);
@@ -202,6 +227,24 @@ export const salesService = {
     await localTx.objectStore('pending_sales').put(pendingRecord);
     await localTx.done;
 
+    // If sale involves customer credit, record in Customer Khata
+    if (customerId && actualDue > 0) {
+      try {
+        const cust = await khataService.getCustomerById(customerId);
+        if (cust) {
+          await khataService.recordSaleCredit({
+            sale: completedSale,
+            customer: cust,
+            paidNow: actualPaid,
+            creditAmount: actualDue,
+            notes: notes || `Bill #${receiptNumber}`,
+          });
+        }
+      } catch (khataErr) {
+        console.warn('Failed to record Khata credit locally:', khataErr);
+      }
+    }
+
     // Immediately update in-memory sales cache
     if (memorySales) {
       memorySales = [completedSale, ...memorySales];
@@ -226,14 +269,19 @@ export const salesService = {
             quantity: i.quantity,
           }));
 
+          const customerNote = customerName
+            ? `Customer: ${customerName} (${customerPhone || 'N/A'}) | Due: ₹${actualDue}`
+            : '';
+          const combinedNotes = [notes, customerNote].filter(Boolean).join(' | ') || null;
+
           const { data, error } = await supabase.rpc('complete_sale', {
             p_items: rpcItems,
             p_discount: safeDiscount,
-            p_payment_method: paymentMethod,
+            p_payment_method: paymentMethod === 'udhar' ? 'mixed' : paymentMethod,
             p_client_transaction_id: transactionId,
             p_receipt_number: receiptNumber,
             p_business_id: DEFAULT_BUSINESS_ID,
-            p_notes: notes || null,
+            p_notes: combinedNotes,
           });
 
           if (!error && (data?.success || data?.is_duplicate)) {

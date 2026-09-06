@@ -16,6 +16,7 @@ import {
   LogOut,
   User,
   Lock,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -36,6 +37,12 @@ export function DesktopSidebar() {
       icon: ShoppingCart,
       badge: 'POS',
       highlight: true,
+    },
+    {
+      label: 'Customer Khata',
+      href: '/khata',
+      icon: BookOpen,
+      badge: 'Udhar',
     },
     {
       label: 'Inventory Stock',

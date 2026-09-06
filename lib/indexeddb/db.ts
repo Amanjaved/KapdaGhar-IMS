@@ -51,10 +51,20 @@ interface KapdaGharDB extends DBSchema {
     key: string;
     value: import('@/types').Business;
   };
+  customers: {
+    key: string;
+    value: import('@/types').Customer;
+    indexes: { 'by-phone': string; 'by-name': string };
+  };
+  customer_transactions: {
+    key: string;
+    value: import('@/types').CustomerTransaction;
+    indexes: { 'by-customer': string; 'by-date': string };
+  };
 }
 
 const DB_NAME = 'kapda_ghar_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<KapdaGharDB>> | null = null;
 
@@ -121,6 +131,20 @@ export function getDB() {
         // Business Store
         if (!db.objectStoreNames.contains('businesses')) {
           db.createObjectStore('businesses', { keyPath: 'id' });
+        }
+
+        // Customers Store
+        if (!db.objectStoreNames.contains('customers')) {
+          const customerStore = db.createObjectStore('customers', { keyPath: 'id' });
+          customerStore.createIndex('by-phone', 'phone');
+          customerStore.createIndex('by-name', 'name');
+        }
+
+        // Customer Transactions (Khata Ledger) Store
+        if (!db.objectStoreNames.contains('customer_transactions')) {
+          const txStore = db.createObjectStore('customer_transactions', { keyPath: 'id' });
+          txStore.createIndex('by-customer', 'customer_id');
+          txStore.createIndex('by-date', 'created_at');
         }
       },
     });
