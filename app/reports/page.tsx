@@ -34,17 +34,39 @@ export default function ReportsPage() {
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      reportsService.getDashboardStats(),
-      reportsService.getTopProducts(5),
-      reportsService.getLowStockProducts(),
-    ]).then(([s, top, low]) => {
+  const loadReportsData = async () => {
+    try {
+      const [s, top, low] = await Promise.all([
+        reportsService.getDashboardStats(true),
+        reportsService.getTopProducts(5),
+        reportsService.getLowStockProducts(),
+      ]);
       setStats(s);
       setTopProducts(top);
       setLowStockProducts(low);
+    } catch (e) {
+      console.error('Failed to load reports:', e);
+    } finally {
       setLoading(false);
-    });
+    }
+  };
+
+  useEffect(() => {
+    loadReportsData();
+
+    const handleRefresh = () => {
+      loadReportsData();
+    };
+
+    window.addEventListener('sales-refreshed', handleRefresh);
+    window.addEventListener('catalog-refreshed', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+
+    return () => {
+      window.removeEventListener('sales-refreshed', handleRefresh);
+      window.removeEventListener('catalog-refreshed', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
   }, []);
 
   const todayMargin = stats.today_sales > 0

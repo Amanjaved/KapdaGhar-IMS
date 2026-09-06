@@ -14,6 +14,12 @@ let lastSalesSync = 0;
 const SALES_SYNC_TTL = 15_000; // 15s
 let pendingSalesSync: Promise<Sale[]> | null = null;
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('sales-refreshed', () => {
+    lastSalesSync = 0;
+  });
+}
+
 function generateReceiptNumber(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -234,10 +240,12 @@ export const salesService = {
             const updateTx = db.transaction('pending_sales', 'readwrite');
             const pending = await updateTx.store.get(transactionId);
             if (pending) {
-              pending.synced = true;
-              await updateTx.store.put(pending);
+              await updateTx.store.delete(transactionId);
             }
             await updateTx.done;
+            // Broadcast live update across all connected devices once saved to cloud
+            broadcastLocalChange('SALES_UPDATED', { saleId: transactionId });
+            broadcastLocalChange('CATALOG_UPDATED');
           }
         }
       } catch (err) {
@@ -246,6 +254,15 @@ export const salesService = {
     }
 
     return { success: true, sale: completedSale };
+  },
+
+  clearMemoryCache() {
+    memorySales = null;
+    lastSalesSync = 0;
+  },
+
+  invalidateCache() {
+    lastSalesSync = 0;
   },
 
   async getSales(

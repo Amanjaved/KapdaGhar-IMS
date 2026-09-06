@@ -39,6 +39,18 @@ export default function SalesHistoryPage() {
 
   useEffect(() => {
     loadSales();
+
+    const handleRefresh = () => {
+      loadSales();
+    };
+
+    window.addEventListener('sales-refreshed', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+
+    return () => {
+      window.removeEventListener('sales-refreshed', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
   }, [filterRange]);
 
   const filteredSales = useMemo(() => {

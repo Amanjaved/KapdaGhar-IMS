@@ -2,6 +2,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { productService } from '@/services/productService';
+import { salesService } from '@/services/salesService';
 import { getDB } from '@/lib/indexeddb/db';
 import { syncEngine } from '@/lib/offline/syncEngine';
 
@@ -35,6 +36,7 @@ async function handleCatalogWiped() {
 }
 
 async function handleSalesWiped() {
+  salesService.clearMemoryCache();
   const db = await getDB();
   if (db) {
     try {
@@ -72,6 +74,7 @@ export function initRealtimeSync() {
           productService.updateLocalProductStock(data.productId, data.newQuantity);
           window.dispatchEvent(new CustomEvent('catalog-refreshed'));
         } else if (type === 'SALES_UPDATED') {
+          salesService.invalidateCache();
           window.dispatchEvent(new CustomEvent('sales-refreshed'));
         }
       };
@@ -88,16 +91,26 @@ export function initRealtimeSync() {
     if (!supabase) return;
 
     realtimeChannel = supabase
-      .channel('kapda-ghar-live-changes')
+      .channel('kapda-ghar-live-changes', {
+        config: { broadcast: { self: false } },
+      })
       .on('broadcast', { event: 'CATALOG_WIPED' }, async () => {
         await handleCatalogWiped();
       })
       .on('broadcast', { event: 'SALES_WIPED' }, async () => {
         await handleSalesWiped();
       })
-      .on('broadcast', { event: 'CATALOG_UPDATED' }, () => {
+      .on('broadcast', { event: 'CATALOG_UPDATED' }, async () => {
         productService.invalidateCache();
-        window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+        try {
+          await Promise.all([
+            productService.syncProductsFromCloud(),
+            productService.syncCategoriesFromCloud(),
+          ]);
+        } catch (e) {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+        }
       })
       .on('broadcast', { event: 'STOCK_UPDATED' }, (payload: any) => {
         if (payload?.payload?.productId) {
@@ -105,8 +118,36 @@ export function initRealtimeSync() {
           window.dispatchEvent(new CustomEvent('catalog-refreshed'));
         }
       })
-      .on('broadcast', { event: 'SALES_UPDATED' }, () => {
-        window.dispatchEvent(new CustomEvent('sales-refreshed'));
+      .on('broadcast', { event: 'SALES_UPDATED' }, async () => {
+        salesService.invalidateCache();
+        productService.invalidateCache();
+        try {
+          await Promise.all([
+            salesService.syncSalesFromCloud(),
+            productService.syncProductsFromCloud(),
+          ]);
+        } catch (e) {
+          console.warn('Realtime sales sync error:', e);
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sales-refreshed'));
+          window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+        }
+
+        // Second pass after 1.5s to ensure complete cloud row persistence across slower connections
+        setTimeout(async () => {
+          salesService.invalidateCache();
+          try {
+            await Promise.all([
+              salesService.syncSalesFromCloud(),
+              productService.syncProductsFromCloud(),
+            ]);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('sales-refreshed'));
+              window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+            }
+          } catch (e) {}
+        }, 1500);
       })
       .on(
         'postgres_changes',
@@ -142,10 +183,12 @@ export function initRealtimeSync() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
         async () => {
-          if (syncEngine) {
-            await syncEngine.runFullAutoSync();
-          } else {
+          productService.invalidateCache();
+          try {
             await productService.syncProductsFromCloud();
+          } catch (e) {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('catalog-refreshed'));
           }
         }
       )
@@ -153,10 +196,12 @@ export function initRealtimeSync() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
         async () => {
-          if (syncEngine) {
-            await syncEngine.runFullAutoSync();
-          } else {
+          productService.invalidateCache();
+          try {
             await productService.syncCategoriesFromCloud();
+          } catch (e) {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('catalog-refreshed'));
           }
         }
       )
@@ -164,9 +209,11 @@ export function initRealtimeSync() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sales' },
         async () => {
-          if (syncEngine) {
-            await syncEngine.runFullAutoSync();
-          } else {
+          salesService.invalidateCache();
+          try {
+            await salesService.syncSalesFromCloud();
+          } catch (e) {}
+          if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('sales-refreshed'));
           }
         }

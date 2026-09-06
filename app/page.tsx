@@ -55,6 +55,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData();
+
+    const handleLiveRefresh = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('sales-refreshed', handleLiveRefresh);
+    window.addEventListener('catalog-refreshed', handleLiveRefresh);
+    window.addEventListener('focus', handleLiveRefresh);
+
+    return () => {
+      window.removeEventListener('sales-refreshed', handleLiveRefresh);
+      window.removeEventListener('catalog-refreshed', handleLiveRefresh);
+      window.removeEventListener('focus', handleLiveRefresh);
+    };
   }, []);
 
   const profitMargin = stats.today_sales > 0
