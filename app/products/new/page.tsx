@@ -99,9 +99,23 @@ export default function AddProductPage() {
       setErrorMsg('Product name is required');
       return;
     }
-    if (!selectedCategory) {
-      setErrorMsg('Please select a category');
-      return;
+    let targetCat = selectedCategory;
+    if (!targetCat && newCatName.trim()) {
+      try {
+        const newCat = await productService.createCategory(newCatName.trim());
+        setCategories((prev) => [...prev, newCat]);
+        targetCat = newCat.id;
+        setSelectedCategory(newCat.id);
+      } catch (e) {}
+    }
+
+    if (!targetCat) {
+      if (categories.length > 0) {
+        targetCat = categories[0].id;
+        setSelectedCategory(categories[0].id);
+      } else {
+        targetCat = 'c0000000-0000-0000-0000-000000000001';
+      }
     }
 
     const buy = parseFloat(purchasePrice) || 0;
@@ -121,7 +135,7 @@ export default function AddProductPage() {
       await productService.createProduct(
         {
           name: name.trim(),
-          category_id: selectedCategory,
+          category_id: targetCat,
           purchase_price: buy,
           selling_price: sell,
           low_stock_threshold: lowStock,
@@ -137,7 +151,7 @@ export default function AddProductPage() {
       setSuccessMsg(`✓ "${name}" added to inventory!`);
 
       if (addAnother) {
-        // Reset inputs for next item
+        // Reset inputs for next item and stay on page
         setName('');
         setPurchasePrice('');
         setSellingPrice('');
@@ -150,6 +164,8 @@ export default function AddProductPage() {
         setImagePreview(null);
         setCompressedSizeKb(null);
         setCompressProgress(0);
+      } else {
+        // Navigate to catalog
         router.push('/inventory');
       }
     } catch (err: any) {

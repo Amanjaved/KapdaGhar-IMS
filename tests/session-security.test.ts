@@ -36,7 +36,7 @@ describe('Kapda Ghar - Security & Session Protection Tests', () => {
     full_name: 'Aman Owner',
     role: 'owner',
     phone: '9999999999',
-    pin: '1234',
+    pin_code: '1234',
     is_active: true,
     created_at: new Date().toISOString(),
   };

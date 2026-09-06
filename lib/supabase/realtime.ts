@@ -79,6 +79,14 @@ export function initRealtimeSync() {
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        async () => {
+          await productService.syncCategoriesFromCloud();
+          window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'sales' },
         () => {
           window.dispatchEvent(new CustomEvent('sales-refreshed'));
@@ -86,9 +94,17 @@ export function initRealtimeSync() {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('⚡ Realtime connected: live stock and sales updates active.');
+          console.log('⚡ Realtime connected: live stock, catalog, and sales updates active.');
         }
       });
+
+    // Auto-refresh when tab or phone screen becomes active/visible
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        productService.syncProductsFromCloud();
+        productService.syncCategoriesFromCloud();
+      }
+    });
   } catch (err) {
     console.warn('Supabase Realtime subscription error:', err);
   }

@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
   Edit3,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 
 function InventoryContent() {
@@ -58,12 +59,23 @@ function InventoryContent() {
   useEffect(() => {
     loadData();
 
+    // Automatically push any local unsynced products (like map 2) to Supabase
+    productService.pushLocalCatalogToCloud().then((res) => {
+      if (res.uploaded > 0) {
+        loadData(true);
+      }
+    });
+
     const handleCatalogRefreshed = () => {
       loadData(true);
     };
 
     window.addEventListener('catalog-refreshed', handleCatalogRefreshed);
-    return () => window.removeEventListener('catalog-refreshed', handleCatalogRefreshed);
+    window.addEventListener('focus', handleCatalogRefreshed);
+    return () => {
+      window.removeEventListener('catalog-refreshed', handleCatalogRefreshed);
+      window.removeEventListener('focus', handleCatalogRefreshed);
+    };
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -121,13 +133,32 @@ function InventoryContent() {
           </p>
         </div>
 
-        <Link
-          href="/products/new"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm active:scale-95 transition-all"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>Add New Product</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              setLoading(true);
+              await productService.pushLocalCatalogToCloud();
+              await productService.syncProductsFromCloud();
+              await productService.syncCategoriesFromCloud();
+              await loadData(true);
+              setLoading(false);
+            }}
+            title="Sync latest inventory with Supabase Cloud"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 active:scale-95 transition-all cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Sync Cloud</span>
+          </button>
+
+          <Link
+            href="/products/new"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm active:scale-95 transition-all"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Add New Product</span>
+          </Link>
+        </div>
       </div>
 
       {/* Summary KPI Cards */}
