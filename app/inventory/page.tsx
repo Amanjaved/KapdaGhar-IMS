@@ -217,7 +217,12 @@ function InventoryContent() {
 
       {/* Inventory Item Rows */}
       <div className="rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden">
-        {filteredProducts.length === 0 ? (
+        {loading && products.length === 0 ? (
+          <div className="py-20 text-center text-slate-500 dark:text-slate-400 text-xs space-y-3">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="font-medium text-slate-600 dark:text-slate-300">Loading catalog...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="py-16 text-center text-slate-500 dark:text-slate-400 text-xs space-y-3">
             {products.length === 0 ? (
               <div className="max-w-xs mx-auto space-y-3">

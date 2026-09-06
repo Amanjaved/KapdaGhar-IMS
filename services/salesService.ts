@@ -4,6 +4,7 @@ import { generateUUID, isValidUUID } from '@/lib/utils/uuid';
 import { CartItem, PaymentMethod, PendingSale, Sale, SaleItem } from '@/types';
 import { calculateGrossProfit, calculateItemProfit, calculateNetProfit, roundToTwo } from '@/lib/utils/currency';
 import { productService } from './productService';
+import { broadcastLocalChange } from '@/lib/supabase/realtime';
 
 const DEFAULT_BUSINESS_ID = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-0000-0000-0000-000000000001';
 
@@ -206,6 +207,8 @@ export const salesService = {
       window.dispatchEvent(new CustomEvent('catalog-refreshed'));
       window.dispatchEvent(new CustomEvent('sales-refreshed'));
     }
+    broadcastLocalChange('SALES_UPDATED');
+    broadcastLocalChange('CATALOG_UPDATED');
 
     // Step 3: Cloud Sync Attempt in background
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {

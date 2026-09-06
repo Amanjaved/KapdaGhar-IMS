@@ -150,9 +150,7 @@ export default function AddProductPage() {
         setImagePreview(null);
         setCompressedSizeKb(null);
         setCompressProgress(0);
-        setTimeout(() => setSuccessMsg(null), 3000);
-      } else {
-        setTimeout(() => router.push('/inventory'), 600);
+        router.push('/inventory');
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to save product');

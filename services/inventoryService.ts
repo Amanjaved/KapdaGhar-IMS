@@ -3,6 +3,7 @@ import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID } from '@/lib/utils/uuid';
 import { InventoryMovement, MovementType } from '@/types';
 import { productService } from './productService';
+import { broadcastLocalChange } from '@/lib/supabase/realtime';
 
 const DEFAULT_BUSINESS_ID = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-0000-0000-0000-000000000001';
 
@@ -73,49 +74,51 @@ export const inventoryService = {
     // Immediately update in-memory product cache for 0ms UI lag
     productService.updateLocalProductStock(productId, newQty);
 
-    // Sync to Supabase if online
-    if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { error: rpcErr } = await supabase.rpc('adjust_inventory', {
-            p_product_id: productId,
-            p_quantity_change: quantityChange,
-            p_reason: reason,
-            p_notes: notes || null,
-            p_business_id: DEFAULT_BUSINESS_ID,
-          });
-
-          if (rpcErr) {
-            console.warn('adjust_inventory RPC error, falling back to direct upsert:', rpcErr);
-            await supabase.from('inventory').upsert(
-              {
-                business_id: DEFAULT_BUSINESS_ID,
-                product_id: productId,
-                quantity: newQty,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'product_id' }
-            );
-
-            await supabase.from('inventory_movements').insert({
-              business_id: DEFAULT_BUSINESS_ID,
-              product_id: productId,
-              movement_type: movementType,
-              quantity_change: quantityChange,
-              quantity_before: currentQty,
-              quantity_after: newQty,
-              notes: `${reason}${notes ? ` - ${notes}` : ''}`,
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Inventory adjusted locally; Supabase adjustment deferred:', err);
-      }
-    }
-
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('catalog-refreshed'));
+    }
+    broadcastLocalChange('STOCK_UPDATED', { productId, newQuantity: newQty });
+
+    // Sync to Supabase in background (DO NOT BLOCK UI)
+    if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
+      (async () => {
+        try {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            const { error: rpcErr } = await supabase.rpc('adjust_inventory', {
+              p_product_id: productId,
+              p_quantity_change: quantityChange,
+              p_reason: reason,
+              p_notes: notes || null,
+              p_business_id: DEFAULT_BUSINESS_ID,
+            });
+
+            if (rpcErr) {
+              await supabase.from('inventory').upsert(
+                {
+                  business_id: DEFAULT_BUSINESS_ID,
+                  product_id: productId,
+                  quantity: newQty,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'product_id' }
+              );
+
+              await supabase.from('inventory_movements').insert({
+                business_id: DEFAULT_BUSINESS_ID,
+                product_id: productId,
+                movement_type: movementType,
+                quantity_change: quantityChange,
+                quantity_before: currentQty,
+                quantity_after: newQty,
+                notes: `${reason}${notes ? ` - ${notes}` : ''}`,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Inventory adjusted locally; Supabase adjustment deferred:', err);
+        }
+      })();
     }
 
     return { success: true, newQuantity: newQty };

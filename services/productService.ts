@@ -2,6 +2,7 @@ import { getDB } from '@/lib/indexeddb/db';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID } from '@/lib/utils/uuid';
 import { Category, Product } from '@/types';
+import { broadcastLocalChange } from '@/lib/supabase/realtime';
 
 const DEFAULT_BUSINESS_ID = process.env.NEXT_PUBLIC_BUSINESS_ID || 'b0000000-0000-0000-0000-000000000001';
 
@@ -10,7 +11,7 @@ let memoryProducts: Product[] | null = null;
 let memoryCategories: Category[] | null = null;
 let lastProductsSync = 0;
 let lastCategoriesSync = 0;
-const SYNC_TTL_MS = 15_000; // 15 seconds
+const SYNC_TTL_MS = 20_000; // 20 seconds
 
 let pendingProductsSync: Promise<Product[]> | null = null;
 let pendingCategoriesSync: Promise<Category[]> | null = null;
@@ -41,6 +42,7 @@ function notifyCatalogUpdated() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('catalog-refreshed'));
   }
+  broadcastLocalChange('CATALOG_UPDATED');
 }
 
 export const productService = {
@@ -144,24 +146,27 @@ export const productService = {
       await db.put('categories', newCategory);
     }
 
+    notifyCatalogUpdated();
+
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          await supabase.from('categories').insert({
-            id: newCategory.id,
-            business_id: DEFAULT_BUSINESS_ID,
-            name: newCategory.name,
-            description: newCategory.description || null,
-            is_active: true,
-          });
+      (async () => {
+        try {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            await supabase.from('categories').insert({
+              id: newCategory.id,
+              business_id: DEFAULT_BUSINESS_ID,
+              name: newCategory.name,
+              description: newCategory.description || null,
+              is_active: true,
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to sync new category to Supabase:', err);
         }
-      } catch (err) {
-        console.warn('Failed to sync new category to Supabase:', err);
-      }
+      })();
     }
 
-    notifyCatalogUpdated();
     return newCategory;
   },
 
@@ -175,12 +180,12 @@ export const productService = {
   ): Promise<Product[]> {
     const now = Date.now();
 
-    // 1. Fast in-memory check
+    // 1. Fast in-memory check (0ms)
     if (!forceRefresh && memoryProducts && now - lastProductsSync < SYNC_TTL_MS) {
       return this.applyProductFilters(memoryProducts, searchQuery, categoryId);
     }
 
-    // 2. Fast IndexedDB read if memory is empty
+    // 2. Fast IndexedDB read if memory is empty (5ms)
     const db = await getDB();
     if (!memoryProducts && db) {
       const [allProducts, allInventory, allCategories] = await Promise.all([
@@ -203,16 +208,18 @@ export const productService = {
       }
     }
 
-    // 3. Trigger cloud sync (await if cold boot or forceRefresh, otherwise run in background)
-    const shouldAwaitCloud = forceRefresh || !memoryProducts || memoryProducts.length === 0;
+    const hasLocal = memoryProducts && memoryProducts.length > 0;
 
+    // Trigger cloud sync
     const syncPromise = this.syncProductsFromCloud();
-    if (shouldAwaitCloud) {
+
+    // Only block if forceRefresh requested or completely empty local state
+    if (forceRefresh || !hasLocal) {
       const freshProducts = await syncPromise;
       return this.applyProductFilters(freshProducts, searchQuery, categoryId);
     }
 
-    // Background sync already triggered, return local/cached immediately (0ms delay)
+    // Return local/cached products immediately (0ms delay)
     return this.applyProductFilters(memoryProducts || [], searchQuery, categoryId);
   },
 
@@ -254,7 +261,23 @@ export const productService = {
                 updated_at: item.updated_at,
               }));
 
-              memoryProducts = cloudProducts;
+              // Preserve any locally created products that aren't yet in the cloud snapshot
+              const cloudIds = new Set(cloudProducts.map((p) => p.id));
+              const localUnsynced = (memoryProducts || []).filter((p) => !cloudIds.has(p.id));
+
+              // If a product had quantity set locally, but cloud snapshot still shows 0 due to in-flight upsert, preserve local quantity
+              const mergedProducts: Product[] = [
+                ...cloudProducts.map((cp) => {
+                  const lp = (memoryProducts || []).find((p) => p.id === cp.id);
+                  if (cp.quantity === 0 && lp && (lp.quantity ?? 0) > 0) {
+                    return { ...cp, quantity: lp.quantity };
+                  }
+                  return cp;
+                }),
+                ...localUnsynced,
+              ];
+
+              memoryProducts = mergedProducts;
               lastProductsSync = Date.now();
 
               // Batch save to IndexedDB asynchronously
@@ -265,8 +288,8 @@ export const productService = {
                   const pStore = tx.objectStore('products');
                   const iStore = tx.objectStore('inventory');
                   await Promise.all([
-                    ...cloudProducts.map((p) => pStore.put(p)),
-                    ...cloudProducts.map((p) =>
+                    ...mergedProducts.map((p) => pStore.put(p)),
+                    ...mergedProducts.map((p) =>
                       iStore.put({
                         id: `inv-${p.id}`,
                         product_id: p.id,
@@ -282,7 +305,7 @@ export const productService = {
               }
 
               notifyCatalogUpdated();
-              return cloudProducts;
+              return mergedProducts;
             } else if (error) {
               console.error('Supabase products fetch error:', error);
             }
@@ -383,14 +406,14 @@ export const productService = {
       quantity: openingStock,
     };
 
-    // 1. Immediately store in in-memory cache so subsequent reads see it instantly
+    // 1. Immediately store in in-memory cache (0ms lag)
     if (memoryProducts) {
       memoryProducts = [newProduct, ...memoryProducts.filter((p) => p.id !== newId)];
     } else {
       memoryProducts = [newProduct];
     }
 
-    // 2. Persist to local IndexedDB
+    // 2. Persist to local IndexedDB (5ms)
     const db = await getDB();
     if (db) {
       const tx = db.transaction(['products', 'inventory', 'inventory_movements'], 'readwrite');
@@ -418,62 +441,63 @@ export const productService = {
       await tx.done;
     }
 
-    // 3. Sync to Supabase if configured and online
+    // Notify UI and other tabs immediately
+    notifyCatalogUpdated();
+
+    // 3. Sync to Supabase in background without blocking the UI
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { error: prodErr } = await supabase.from('products').insert({
-            id: newId,
-            business_id: DEFAULT_BUSINESS_ID,
-            category_id: newProduct.category_id,
-            name: newProduct.name,
-            sku: newProduct.sku || null,
-            barcode: newProduct.barcode || null,
-            description: newProduct.description || null,
-            image_url: newProduct.image_url || null,
-            purchase_price: newProduct.purchase_price,
-            selling_price: newProduct.selling_price,
-            low_stock_threshold: newProduct.low_stock_threshold,
-            is_active: true,
-          });
+      (async () => {
+        try {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            const { error: prodErr } = await supabase.from('products').insert({
+              id: newId,
+              business_id: DEFAULT_BUSINESS_ID,
+              category_id: newProduct.category_id,
+              name: newProduct.name,
+              sku: newProduct.sku || null,
+              barcode: newProduct.barcode || null,
+              description: newProduct.description || null,
+              image_url: newProduct.image_url || null,
+              purchase_price: newProduct.purchase_price,
+              selling_price: newProduct.selling_price,
+              low_stock_threshold: newProduct.low_stock_threshold,
+              is_active: true,
+            });
 
-          if (!prodErr) {
-            const { error: invErr } = await supabase.from('inventory').upsert(
-              {
-                business_id: DEFAULT_BUSINESS_ID,
-                product_id: newId,
-                quantity: openingStock,
-                updated_at: now,
-              },
-              { onConflict: 'product_id' }
-            );
-
-            if (invErr) {
-              console.error('Supabase inventory upsert error:', invErr);
+            if (!prodErr) {
+              await Promise.all([
+                supabase.from('inventory').upsert(
+                  {
+                    business_id: DEFAULT_BUSINESS_ID,
+                    product_id: newId,
+                    quantity: openingStock,
+                    updated_at: now,
+                  },
+                  { onConflict: 'product_id' }
+                ),
+                openingStock > 0
+                  ? supabase.from('inventory_movements').insert({
+                      business_id: DEFAULT_BUSINESS_ID,
+                      product_id: newId,
+                      movement_type: 'purchase',
+                      quantity_change: openingStock,
+                      quantity_before: 0,
+                      quantity_after: openingStock,
+                      notes: 'Opening stock on product creation',
+                    })
+                  : Promise.resolve(),
+              ]);
+            } else {
+              console.error('Failed to create product in Supabase:', prodErr);
             }
-
-            if (openingStock > 0) {
-              await supabase.from('inventory_movements').insert({
-                business_id: DEFAULT_BUSINESS_ID,
-                product_id: newId,
-                movement_type: 'purchase',
-                quantity_change: openingStock,
-                quantity_before: 0,
-                quantity_after: openingStock,
-                notes: 'Opening stock on product creation',
-              });
-            }
-          } else {
-            console.error('Failed to create product in Supabase:', prodErr);
           }
+        } catch (err) {
+          console.warn('Product created locally, Supabase cloud sync deferred:', err);
         }
-      } catch (err) {
-        console.warn('Product created locally, Supabase cloud sync deferred:', err);
-      }
+      })();
     }
 
-    notifyCatalogUpdated();
     return newProduct;
   },
 
@@ -506,20 +530,22 @@ export const productService = {
       }
     }
 
+    notifyCatalogUpdated();
+
     // 3. Update Supabase
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { quantity, category_name, ...cloudUpdates } = updates as any;
-          await supabase.from('products').update(cloudUpdates).eq('id', id);
+      (async () => {
+        try {
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            const { quantity, category_name, ...cloudUpdates } = updates as any;
+            await supabase.from('products').update(cloudUpdates).eq('id', id);
+          }
+        } catch (err) {
+          console.warn('Product updated locally, failed cloud sync:', err);
         }
-      } catch (err) {
-        console.warn('Product updated locally, failed cloud sync:', err);
-      }
+      })();
     }
-
-    notifyCatalogUpdated();
   },
 
   /**

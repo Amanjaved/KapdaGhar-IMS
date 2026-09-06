@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
+import { RealtimeProvider } from '@/components/providers/RealtimeProvider';
 import { AppShell } from '@/components/layout/AppShell';
 
 export const metadata: Metadata = {
@@ -64,7 +65,9 @@ export default function RootLayout({
       </head>
       <body className="bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 min-h-screen antialiased flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
         <ThemeProvider>
-          <AppShell>{children}</AppShell>
+          <RealtimeProvider>
+            <AppShell>{children}</AppShell>
+          </RealtimeProvider>
         </ThemeProvider>
 
         {/* PWA Service Worker Registration */}
