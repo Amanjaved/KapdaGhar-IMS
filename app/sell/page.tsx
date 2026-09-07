@@ -8,6 +8,7 @@ import { khataService } from '@/services/khataService';
 import { Category, Product, CartItem, PaymentMethod, Sale, Customer } from '@/types';
 import { formatCurrency, roundToTwo } from '@/lib/utils/currency';
 import { ReceiptModal } from '@/components/pos/ReceiptModal';
+import { ProductImage } from '@/components/common/ProductImage';
 import {
   Search,
   Barcode,
@@ -702,18 +703,12 @@ export default function ScanAndSellPage() {
                 >
                   {/* Product Image Thumbnail */}
                   <div className="relative aspect-[4/3] w-full rounded-lg bg-slate-100 dark:bg-[#0b0f19] overflow-hidden mb-2.5 border border-slate-200 dark:border-slate-800/60">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
-                        <Tag className="w-6 h-6 stroke-[1.5]" />
-                      </div>
-                    )}
+                    <ProductImage
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
 
                     {/* Stock Status Badge */}
                     <div className="absolute top-1.5 right-1.5">

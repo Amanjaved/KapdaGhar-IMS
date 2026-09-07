@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Product } from '@/types';
 import { productService, deleteProduct } from '@/services/productService';
 import { Trash2, AlertTriangle, X, Loader2, Package } from 'lucide-react';
+import { ProductImage } from '@/components/common/ProductImage';
 
 interface DeleteProductModalProps {
   product: Product;
@@ -77,18 +78,17 @@ export function DeleteProductModal({ product, onClose, onDeleted }: DeleteProduc
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800/80 flex items-center gap-3">
             {/* Product Photo Thumbnail */}
             <div className="w-16 h-16 rounded-lg bg-slate-100 dark:bg-[#121827] border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden flex items-center justify-center">
-              {product.image_url ? (
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
-                  <Package className="w-6 h-6 stroke-[1.5]" />
-                  <span className="text-[9px] font-sans mt-0.5">No photo</span>
-                </div>
-              )}
+              <ProductImage
+                src={product.image_url}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                fallbackIcon={
+                  <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+                    <Package className="w-6 h-6 stroke-[1.5]" />
+                    <span className="text-[9px] font-sans mt-0.5">No photo</span>
+                  </div>
+                }
+              />
             </div>
 
             {/* Product Details */}

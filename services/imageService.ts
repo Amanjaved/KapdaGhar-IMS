@@ -5,13 +5,16 @@ export const imageService = {
   async processAndUploadImage(
     file: File,
     productId: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    onStatusChange?: (status: string) => void
   ): Promise<{ imageUrl: string; sizeKb: number }> {
     if (onProgress) onProgress(20);
 
-    // Step 1: Compress on client canvas to WebP
-    const compressed = await compressImage(file, 1200, 0.8);
+    // Step 1: Compress on client canvas to WebP (with automatic HEIC -> JPEG normalization)
+    const compressed = await compressImage(file, 1200, 0.8, onStatusChange);
     if (onProgress) onProgress(60);
+
+    if (onStatusChange) onStatusChange('Uploading optimized image...');
 
     // Step 2: Cloud Storage if configured & online
     if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {

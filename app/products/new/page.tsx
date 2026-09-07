@@ -7,6 +7,8 @@ import { productService } from '@/services/productService';
 import { imageService } from '@/services/imageService';
 import { Category } from '@/types';
 import { formatCurrency } from '@/lib/utils/currency';
+import { isHeicFormat } from '@/lib/utils/imageCompression';
+import { ProductImage } from '@/components/common/ProductImage';
 import {
   Camera,
   Upload,
@@ -19,6 +21,7 @@ import {
   Sparkles,
   AlertCircle,
   Barcode,
+  RotateCw,
 } from 'lucide-react';
 
 export default function AddProductPage() {
@@ -43,6 +46,8 @@ export default function AddProductPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [compressProgress, setCompressProgress] = useState<number>(0);
   const [compressedSizeKb, setCompressedSizeKb] = useState<number | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
+  const [imageStatusText, setImageStatusText] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -61,21 +66,26 @@ export default function AddProductPage() {
 
   const handleFileChange = async (file: File) => {
     setImageFile(file);
-    setCompressProgress(10);
+    setIsProcessingImage(true);
+    setCompressProgress(15);
+    const isHeic = isHeicFormat(file);
+    setImageStatusText(isHeic ? 'Converting iPhone (HEIC) photo...' : 'Compressing photo...');
+
     try {
       const uploadRes = await imageService.processAndUploadImage(
         file,
         `prod-temp-${Date.now()}`,
-        (percent) => setCompressProgress(percent)
+        (percent) => setCompressProgress(percent),
+        (status) => setImageStatusText(status)
       );
       setImagePreview(uploadRes.imageUrl);
       setCompressedSizeKb(uploadRes.sizeKb);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Failed to process image:', err);
-      // Fallback preview
-      const reader = new FileReader();
-      reader.onload = (e) => setImagePreview(e.target?.result as string);
-      reader.readAsDataURL(file);
+      setErrorMsg(err?.message || 'Failed to process image. Please try another photo.');
+    } finally {
+      setIsProcessingImage(false);
+      setImageStatusText('');
     }
   };
 
@@ -446,9 +456,27 @@ export default function AddProductPage() {
             <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Product Photo</h3>
           </div>
 
-          {imagePreview ? (
+          {isProcessingImage ? (
+            <div className="p-8 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/60 flex flex-col items-center justify-center gap-3">
+              <RotateCw className="w-6 h-6 animate-spin text-indigo-600 dark:text-indigo-400" />
+              <div className="text-center space-y-1">
+                <p className="text-xs font-bold text-slate-900 dark:text-white">
+                  {imageStatusText || 'Processing Image...'}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Converting Apple HEIC & compressing to WebP for fast POS loading
+                </p>
+              </div>
+              <div className="w-48 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mt-1">
+                <div
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.max(compressProgress, 15)}%` }}
+                />
+              </div>
+            </div>
+          ) : imagePreview ? (
             <div className="relative aspect-video max-h-52 w-full rounded-lg bg-slate-100 dark:bg-[#0b0f19] overflow-hidden border border-slate-300 dark:border-slate-700">
-              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              <ProductImage src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
               <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-emerald-400 font-medium">
                 Optimized WebP {compressedSizeKb ? `(${compressedSizeKb} KB)` : ''}
               </div>
@@ -457,8 +485,9 @@ export default function AddProductPage() {
                 onClick={() => {
                   setImagePreview(null);
                   setImageFile(null);
+                  setCompressedSizeKb(null);
                 }}
-                className="absolute top-2 right-2 px-2.5 py-1 rounded bg-black/70 text-xs font-medium text-white hover:bg-black/90 transition-colors"
+                className="absolute top-2 right-2 px-2.5 py-1 rounded bg-black/70 text-xs font-medium text-white hover:bg-black/90 transition-colors cursor-pointer"
               >
                 Change Photo
               </button>
@@ -489,7 +518,7 @@ export default function AddProductPage() {
                 </div>
                 <div className="text-center">
                   <span className="text-xs font-semibold text-slate-900 dark:text-white block">Upload Image</span>
-                  <span className="text-[10px] text-slate-500">From local files</span>
+                  <span className="text-[10px] text-slate-500">JPG, PNG, HEIC (iPhone)</span>
                 </div>
               </button>
             </div>
@@ -498,7 +527,7 @@ export default function AddProductPage() {
           <input
             ref={cameraInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif,image/heic,image/heif"
             capture="environment"
             className="hidden"
             onChange={(e) => e.target.files?.[0] && handleFileChange(e.target.files[0])}
@@ -506,7 +535,7 @@ export default function AddProductPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif,image/heic,image/heif"
             className="hidden"
             onChange={(e) => e.target.files?.[0] && handleFileChange(e.target.files[0])}
           />

@@ -10,6 +10,7 @@ import { Category, Product } from '@/types';
 import { formatCurrency } from '@/lib/utils/currency';
 import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
 import { DeleteProductModal } from '@/components/inventory/DeleteProductModal';
+import { ProductImage } from '@/components/common/ProductImage';
 import {
   Search,
   Plus,
@@ -289,17 +290,11 @@ function InventoryContent() {
                     {/* Header: Photo + Name + Category & Stock Pill */}
                     <div className="flex items-start gap-3">
                       <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
-                            <Tag className="w-5 h-5" />
-                          </div>
-                        )}
+                        <ProductImage
+                          src={product.image_url}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -422,17 +417,11 @@ function InventoryContent() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden">
-                              {product.image_url ? (
-                                <img
-                                  src={product.image_url}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
-                                  <Tag className="w-4 h-4" />
-                                </div>
-                              )}
+                              <ProductImage
+                                src={product.image_url}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                             <div>
                               <span className="font-semibold text-slate-900 dark:text-white leading-tight block">
