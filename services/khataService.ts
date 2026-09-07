@@ -167,6 +167,7 @@ export const khataService = {
       created_at: now,
       updated_at: now,
     };
+    (newCustomer as any)._is_pending_cloud_sync = true;
 
     // 1. Save to local IndexedDB
     const db = await getDB();
@@ -186,6 +187,7 @@ export const khataService = {
           balance_after: initialDue,
           created_at: now,
         };
+        (openingTx as any)._is_pending_cloud_sync = true;
         await db.put('customer_transactions', openingTx);
       }
     }
@@ -205,7 +207,7 @@ export const khataService = {
         try {
           const supabase = getSupabaseClient();
           if (supabase) {
-            await supabase.from('customers').insert({
+            const { error: custErr } = await supabase.from('customers').insert({
               id: newCustomer.id,
               business_id: DEFAULT_BUSINESS_ID,
               name: newCustomer.name,
@@ -215,8 +217,13 @@ export const khataService = {
               total_due: newCustomer.total_due,
             });
 
+            if (!custErr) {
+              delete (newCustomer as any)._is_pending_cloud_sync;
+              if (db) await db.put('customers', newCustomer);
+            }
+
             if (initialDue > 0) {
-              await supabase.from('customer_transactions').insert({
+              const { error: txErr } = await supabase.from('customer_transactions').insert({
                 id: generateUUID(),
                 business_id: DEFAULT_BUSINESS_ID,
                 customer_id: newCustomer.id,
@@ -225,10 +232,17 @@ export const khataService = {
                 notes: 'Opening Balance (Initial Credit)',
                 balance_after: initialDue,
               });
+              if (!txErr && db) {
+                const localOpeningTx = await db.get('customer_transactions', id);
+                if (localOpeningTx) {
+                  delete (localOpeningTx as any)._is_pending_cloud_sync;
+                  await db.put('customer_transactions', localOpeningTx);
+                }
+              }
             }
           }
         } catch (err) {
-          console.warn('Customer cloud creation deferred:', err);
+          console.warn('Customer cloud creation deferred to auto-sync:', err);
         }
       })();
     }
@@ -278,6 +292,9 @@ export const khataService = {
       created_at: now,
     };
 
+    (updatedCustomer as any)._is_pending_cloud_sync = true;
+    (creditTx as any)._is_pending_cloud_sync = true;
+
     // Save locally
     const tx = db.transaction(['customers', 'customer_transactions'], 'readwrite');
     await tx.objectStore('customers').put(updatedCustomer);
@@ -297,12 +314,12 @@ export const khataService = {
         try {
           const supabase = getSupabaseClient();
           if (supabase) {
-            await supabase
+            const { error: custErr } = await supabase
               .from('customers')
               .update({ total_due: newDue, updated_at: now })
               .eq('id', customer.id);
 
-            await supabase.from('customer_transactions').insert({
+            const { error: txErr } = await supabase.from('customer_transactions').insert({
               id: creditTx.id,
               business_id: DEFAULT_BUSINESS_ID,
               customer_id: customer.id,
@@ -315,9 +332,18 @@ export const khataService = {
               balance_after: newDue,
               created_at: now,
             });
+
+            if (!custErr && !txErr) {
+              delete (updatedCustomer as any)._is_pending_cloud_sync;
+              delete (creditTx as any)._is_pending_cloud_sync;
+              const cleanTx = db.transaction(['customers', 'customer_transactions'], 'readwrite');
+              await cleanTx.objectStore('customers').put(updatedCustomer);
+              await cleanTx.objectStore('customer_transactions').put(creditTx);
+              await cleanTx.done;
+            }
           }
         } catch (err) {
-          console.warn('Customer credit sync deferred:', err);
+          console.warn('Customer credit sync deferred to auto-sync:', err);
         }
       })();
     }
@@ -375,6 +401,9 @@ export const khataService = {
       created_at: now,
     };
 
+    (updatedCustomer as any)._is_pending_cloud_sync = true;
+    (paymentTx as any)._is_pending_cloud_sync = true;
+
     const db = await getDB();
     if (db) {
       const tx = db.transaction(['customers', 'customer_transactions'], 'readwrite');
@@ -395,12 +424,12 @@ export const khataService = {
         try {
           const supabase = getSupabaseClient();
           if (supabase) {
-            await supabase
+            const { error: custErr } = await supabase
               .from('customers')
               .update({ total_due: newDue, updated_at: now })
               .eq('id', customer.id);
 
-            await supabase.from('customer_transactions').insert({
+            const { error: txErr } = await supabase.from('customer_transactions').insert({
               id: paymentTx.id,
               business_id: DEFAULT_BUSINESS_ID,
               customer_id: customer.id,
@@ -411,9 +440,18 @@ export const khataService = {
               balance_after: newDue,
               created_at: now,
             });
+
+            if (!custErr && !txErr && db) {
+              delete (updatedCustomer as any)._is_pending_cloud_sync;
+              delete (paymentTx as any)._is_pending_cloud_sync;
+              const cleanTx = db.transaction(['customers', 'customer_transactions'], 'readwrite');
+              await cleanTx.objectStore('customers').put(updatedCustomer);
+              await cleanTx.objectStore('customer_transactions').put(paymentTx);
+              await cleanTx.done;
+            }
           }
         } catch (err) {
-          console.warn('Customer payment cloud sync error:', err);
+          console.warn('Customer payment cloud sync deferred to auto-sync:', err);
         }
       })();
     }
@@ -562,13 +600,30 @@ export const khataService = {
               memoryCustomers = formatted;
               lastCustomerSync = Date.now();
 
-              // Batch save to IndexedDB
+              // Batch save to IndexedDB, without overwriting local records with pending sync
               const db = await getDB();
               if (db) {
                 try {
+                  const existingLocal = await db.getAll('customers');
+                  const pendingIds = new Set(
+                    existingLocal
+                      .filter((c) => (c as any)._is_pending_cloud_sync)
+                      .map((c) => c.id)
+                  );
+
                   const tx = db.transaction('customers', 'readwrite');
-                  await Promise.all(formatted.map((c) => tx.store.put(c)));
+                  for (const c of formatted) {
+                    if (!pendingIds.has(c.id)) {
+                      await tx.store.put(c);
+                    }
+                  }
                   await tx.done;
+
+                  const pendingList = existingLocal.filter((c) => pendingIds.has(c.id));
+                  memoryCustomers = [
+                    ...pendingList,
+                    ...formatted.filter((c) => !pendingIds.has(c.id)),
+                  ];
                 } catch (dbErr) {
                   console.warn('Batch customers IndexedDB error:', dbErr);
                 }
@@ -588,6 +643,110 @@ export const khataService = {
     })();
 
     return pendingCustomersSync;
+  },
+
+  /**
+   * Push any customers or customer transactions created/modified offline to Supabase
+   */
+  async pushLocalKhataToCloud(): Promise<{ uploaded: number; errors: number }> {
+    if (!isSupabaseConfigured() || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      return { uploaded: 0, errors: 0 };
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return { uploaded: 0, errors: 0 };
+
+    const db = await getDB();
+    if (!db) return { uploaded: 0, errors: 0 };
+
+    let uploaded = 0;
+    let errors = 0;
+
+    try {
+      const [localCustomers, localTxs] = await Promise.all([
+        db.getAll('customers'),
+        db.getAll('customer_transactions'),
+      ]);
+
+      const pendingCustomers = (localCustomers || []).filter(
+        (c) => (c as any)._is_pending_cloud_sync === true
+      );
+
+      const pendingTxs = (localTxs || []).filter(
+        (t) => (t as any)._is_pending_cloud_sync === true
+      );
+
+      if (pendingCustomers.length === 0 && pendingTxs.length === 0) {
+        return { uploaded: 0, errors: 0 };
+      }
+
+      // 1. Push pending customers
+      for (const cust of pendingCustomers) {
+        try {
+          const { error: custErr } = await supabase.from('customers').upsert({
+            id: cust.id,
+            business_id: DEFAULT_BUSINESS_ID,
+            name: cust.name,
+            phone: cust.phone,
+            address: cust.address || null,
+            notes: cust.notes || null,
+            total_due: cust.total_due || 0,
+            updated_at: cust.updated_at || new Date().toISOString(),
+          }, { onConflict: 'id' });
+
+          if (!custErr) {
+            delete (cust as any)._is_pending_cloud_sync;
+            await db.put('customers', cust);
+            uploaded++;
+          } else {
+            console.error('Failed to sync offline customer to cloud:', cust.name, custErr);
+            errors++;
+          }
+        } catch (e) {
+          console.warn('Offline customer sync error:', e);
+          errors++;
+        }
+      }
+
+      // 2. Push pending transactions
+      for (const tx of pendingTxs) {
+        try {
+          const { error: txErr } = await supabase.from('customer_transactions').upsert({
+            id: tx.id,
+            business_id: DEFAULT_BUSINESS_ID,
+            customer_id: tx.customer_id,
+            sale_id: tx.sale_id || null,
+            type: tx.type,
+            amount: tx.amount,
+            payment_method: tx.payment_method || 'other',
+            receipt_number: tx.receipt_number || null,
+            notes: tx.notes || null,
+            balance_after: tx.balance_after,
+            created_at: tx.created_at,
+          }, { onConflict: 'id' });
+
+          if (!txErr) {
+            delete (tx as any)._is_pending_cloud_sync;
+            await db.put('customer_transactions', tx);
+            uploaded++;
+          } else {
+            console.error('Failed to sync offline customer tx to cloud:', tx.id, txErr);
+            errors++;
+          }
+        } catch (e) {
+          console.warn('Offline customer transaction sync error:', e);
+          errors++;
+        }
+      }
+
+      if (uploaded > 0) {
+        notifyKhataUpdated();
+      }
+    } catch (e) {
+      console.warn('pushLocalKhataToCloud error:', e);
+    }
+
+    return { uploaded, errors };
   },
 
   /**

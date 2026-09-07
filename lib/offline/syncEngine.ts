@@ -3,6 +3,7 @@ import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { generateUUID, isValidUUID, toValidUUID } from '@/lib/utils/uuid';
 import { productService } from '@/services/productService';
 import { salesService } from '@/services/salesService';
+import { khataService } from '@/services/khataService';
 
 export interface SyncStatus {
   isOnline: boolean;
@@ -192,23 +193,40 @@ class SyncEngine {
         statusMsg = salesRes.lastError;
       }
 
-      // 3. Pull latest sales from Supabase (keeps multiple terminals and phones in sync)
+      // 3. Push any offline customer records or udhar transactions
+      try {
+        const khataRes = await khataService.pushLocalKhataToCloud();
+        totalUploaded += khataRes.uploaded;
+        totalErrors += khataRes.errors;
+      } catch (kErr) {
+        console.warn('Khata push error:', kErr);
+      }
+
+      // 4. Pull latest sales from Supabase (keeps multiple terminals and phones in sync)
       try {
         await salesService.syncSalesFromCloud();
       } catch (salesErr) {
         console.warn('Sync sales from cloud error:', salesErr);
       }
 
-      // 4. Pull latest categories from Supabase
+      // 5. Pull latest categories from Supabase
       await productService.syncCategoriesFromCloud();
 
-      // 5. Pull latest products and inventory from Supabase (purges deleted items)
+      // 6. Pull latest products and inventory from Supabase (purges deleted items)
       await productService.syncProductsFromCloud();
 
-      // 6. Notify all open tabs and UI pages
+      // 7. Pull latest customers and khata from Supabase
+      try {
+        await khataService.syncCustomersFromCloud();
+      } catch (kPullErr) {
+        console.warn('Sync customers from cloud error:', kPullErr);
+      }
+
+      // 8. Notify all open tabs and UI pages
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('catalog-refreshed'));
         window.dispatchEvent(new CustomEvent('sales-refreshed'));
+        window.dispatchEvent(new CustomEvent('khata-refreshed'));
       }
 
       this.lastSyncedAt = new Date();
@@ -241,9 +259,26 @@ class SyncEngine {
     const db = await getDB();
     if (!db) return 0;
 
-    const allPending = await db.getAll('pending_sales');
-    const unsynced = allPending.filter((p) => !p.synced);
-    this.pendingCount = unsynced.length;
+    let total = 0;
+    try {
+      const allPending = await db.getAll('pending_sales');
+      total += allPending.filter((p) => !p.synced).length;
+    } catch {}
+
+    try {
+      const allProducts = await db.getAll('products');
+      total += allProducts.filter((p) => (p as any)._is_pending_cloud_sync).length;
+    } catch {}
+
+    try {
+      const allCustomers = await db.getAll('customers');
+      total += allCustomers.filter((c) => (c as any)._is_pending_cloud_sync).length;
+
+      const allCustomerTxs = await db.getAll('customer_transactions');
+      total += allCustomerTxs.filter((t) => (t as any)._is_pending_cloud_sync).length;
+    } catch {}
+
+    this.pendingCount = total;
     return this.pendingCount;
   }
 
